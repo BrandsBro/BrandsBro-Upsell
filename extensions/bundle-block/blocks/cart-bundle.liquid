@@ -1,0 +1,179 @@
+{% comment %}
+  Cart Bundle Widget - App Embed Block
+  Shows bundle upsell on the cart page
+{% endcomment %}
+
+<div id="cart-bundle-widget" style="display:none; margin: 16px 0;">
+  <div style="
+    border: 2px dashed #e5e5e5;
+    border-radius: 12px;
+    padding: 20px;
+    background: #fff;
+  ">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+      <div>
+        <span style="
+          display:inline-block;
+          background:#008060;
+          color:#fff;
+          font-size:11px;
+          font-weight:600;
+          padding:3px 10px;
+          border-radius:20px;
+          margin-bottom:6px;
+          text-transform:uppercase;
+          letter-spacing:0.08em;
+        ">Bundle Deal</span>
+        <p id="cart-bundle-title" style="font-size:16px; font-weight:700; margin:0;"></p>
+        <p id="cart-bundle-savings" style="font-size:13px; color:#008060; font-weight:600; margin:4px 0 0;"></p>
+      </div>
+      <button
+        id="cart-bundle-close"
+        style="background:none; border:none; font-size:20px; cursor:pointer; color:#999; padding:4px;"
+      >×</button>
+    </div>
+
+    <div id="cart-bundle-products" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;"></div>
+
+    <button
+      id="cart-bundle-btn"
+      style="
+        width:100%;
+        background:#008060;
+        color:#fff;
+        border:none;
+        border-radius:8px;
+        padding:14px;
+        font-size:15px;
+        font-weight:600;
+        cursor:pointer;
+      "
+    >
+      Add Bundle & Save
+    </button>
+  </div>
+</div>
+
+<script>
+(function() {
+  const shopDomain = "{{ shop.permanent_domain }}";
+  const appUrl = "{{ app.url }}";
+
+  async function getCartItems() {
+    const res = await fetch("/cart.js");
+    return res.json();
+  }
+
+  async function checkForBundle() {
+    try {
+      const cart = await getCartItems();
+      if (!cart.items || cart.items.length === 0) return;
+
+      // Check each cart item's product for a bundle
+      for (const item of cart.items) {
+        const res = await fetch(
+          `${appUrl}/api/bundles?shop=${shopDomain}&productId=${item.product_id}`
+        );
+        const data = await res.json();
+
+        if (!data.bundle) continue;
+
+        const bundle = data.bundle;
+        const products = bundle.products ?? [];
+
+        // Check which bundle products are NOT yet in cart
+        const cartProductIds = cart.items.map((i) => String(i.product_id));
+        const missingProducts = products.filter(
+          (p) => !cartProductIds.includes(p.id.replace("gid://shopify/Product/", ""))
+        );
+
+        if (missingProducts.length === 0) continue; // All already in cart
+
+        // Show the widget
+        showBundleWidget(bundle, missingProducts);
+        break;
+      }
+    } catch (err) {
+      console.error("Cart bundle error:", err);
+    }
+  }
+
+  function showBundleWidget(bundle, missingProducts) {
+    const widget = document.getElementById("cart-bundle-widget");
+    if (!widget) return;
+
+    document.getElementById("cart-bundle-title").textContent = bundle.name;
+
+    const discount = bundle.discountValue ?? 0;
+    const discountType = bundle.discountType ?? "PERCENTAGE";
+    const totalMissing = missingProducts.reduce((s, p) => s + parseFloat(p.price || 0), 0);
+    const savings = discountType === "PERCENTAGE"
+      ? (totalMissing * discount / 100)
+      : discount;
+    document.getElementById("cart-bundle-savings").textContent =
+      `Add ${missingProducts.length} more item${missingProducts.length > 1 ? "s" : ""} and save $${savings.toFixed(2)}`;
+
+    const productsContainer = document.getElementById("cart-bundle-products");
+    productsContainer.innerHTML = missingProducts.map((p) => `
+      <div style="
+        display:flex; align-items:center; gap:8px;
+        background:#f8f8f8; border-radius:8px; padding:8px 12px;
+        flex:1; min-width:120px;
+      ">
+        ${p.image ? `<img src="${p.image}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;" />` : ""}
+        <div>
+          <p style="font-size:12px;font-weight:600;margin:0 0 2px;line-height:1.3;">${p.title}</p>
+          <p style="font-size:12px;color:#666;margin:0;">$${p.price}</p>
+        </div>
+      </div>
+    `).join('<span style="align-self:center;color:#ccc;font-size:18px;">+</span>');
+
+    widget.style.display = "block";
+
+    // Close button
+    document.getElementById("cart-bundle-close").onclick = () => {
+      widget.style.display = "none";
+    };
+
+    // Add to cart
+    document.getElementById("cart-bundle-btn").onclick = async function() {
+      this.disabled = true;
+      this.textContent = "Adding...";
+
+      const items = missingProducts.map((p) => ({
+        id: p.variantId.replace("gid://shopify/ProductVariant/", ""),
+        quantity: 1,
+      }));
+
+      try {
+        await fetch("/cart/add.js", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items }),
+        });
+        this.textContent = "Added! Refreshing...";
+        setTimeout(() => window.location.reload(), 800);
+      } catch (err) {
+        this.textContent = "Error — try again";
+        this.disabled = false;
+      }
+    };
+  }
+
+  // Run on cart page only
+  if (window.location.pathname === "/cart") {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", checkForBundle);
+    } else {
+      checkForBundle();
+    }
+  }
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Cart Bundle Widget",
+  "target": "body"
+}
+{% endschema %}

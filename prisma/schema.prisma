@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+
+  @@map("sessions")
+}
+
+model Shop {
+  id            String    @id @default(cuid())
+  shopDomain    String    @unique
+  accessToken   String
+  scope         String
+  plan          Plan      @default(FREE)
+  isActive      Boolean   @default(true)
+  installedAt   DateTime  @default(now())
+
+  funnels       Funnel[]
+  upsellEvents  UpsellEvent[]
+  bundles       Bundle[]      
+
+  @@map("shops")
+}
+
+model Funnel {
+  id             String       @id @default(cuid())
+  shopId         String
+  name           String
+  status         FunnelStatus @default(DRAFT)
+  type           FunnelType   @default(POST_PURCHASE)
+  priority       Int          @default(0)
+  offerProductId String
+  offerVariantId String
+  discountType   DiscountType @default(PERCENTAGE)
+  discountValue  Float        @default(0)
+  triggerRules   Json         @default("{}")
+  abTestEnabled  Boolean      @default(false)
+  abVariants     Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  shop           Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  upsellEvents   UpsellEvent[]
+
+  @@index([shopId, status])
+  @@map("funnels")
+}
+
+model UpsellEvent {
+  id           String    @id @default(cuid())
+  shopId       String
+  funnelId     String
+  orderId      String
+  customerId   String?
+  eventType    EventType
+  variantId    String?
+  revenueAdded Float     @default(0)
+  createdAt    DateTime  @default(now())
+
+  shop         Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  funnel       Funnel    @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
+  @@index([funnelId, eventType])
+  @@map("upsell_events")
+}
+model Bundle {
+  id            String       @id @default(cuid())
+  shopId        String
+  name          String
+  status        FunnelStatus @default(DRAFT)
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Float        @default(0)
+  products      Json         @default("[]")
+  showOnProduct Boolean      @default(true)
+  showOnCart    Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  shop          Shop         @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId])
+  @@map("bundles")
+}
+enum Plan {
+  FREE
+  STARTER
+  GROWTH
+  PRO
+}
+
+enum FunnelStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum FunnelType {
+  POST_PURCHASE
+  PRE_PURCHASE_CART
+  PRE_PURCHASE_PRODUCT
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+  FREE_SHIPPING
+}
+
+enum EventType {
+  IMPRESSION
+  ACCEPTED
+  DECLINED
+}
