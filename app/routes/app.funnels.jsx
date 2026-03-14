@@ -1,4 +1,5 @@
 import { useLoaderData } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   Page,
   Layout,
@@ -32,6 +33,7 @@ export const loader = async ({ request }) => {
 
 export default function FunnelsPage() {
   const { funnels } = useLoaderData();
+  const shopify = useAppBridge();
   const [statusFilter, setStatusFilter] = useState([]);
   const [queryValue, setQueryValue] = useState("");
 
@@ -55,11 +57,10 @@ export default function FunnelsPage() {
       key={funnel.id}
       selected={selectedResources.includes(funnel.id)}
       position={index}
+      onClick={() => shopify.navigate(`/app/funnels/${funnel.id}`)}
     >
       <IndexTable.Cell>
-        <a href={`/app/funnels/${funnel.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-          <Text fontWeight="bold" as="span">{funnel.name}</Text>
-        </a>
+        <Text fontWeight="bold" as="span">{funnel.name}</Text>
       </IndexTable.Cell>
       <IndexTable.Cell>
         <Badge tone={
@@ -93,8 +94,11 @@ export default function FunnelsPage() {
   return (
     <Page
       title="Funnels"
-      primaryAction={{ content: "Create funnel", url: "/app/funnels/new" }}
-      backAction={{ content: "Dashboard", url: "/app" }}
+      primaryAction={{
+        content: "Create funnel",
+        onAction: () => shopify.navigate("/app/funnels/new"),
+      }}
+      backAction={{ content: "Dashboard", onAction: () => shopify.navigate("/app") }}
     >
       <Layout>
         <Layout.Section>
@@ -102,7 +106,10 @@ export default function FunnelsPage() {
             {funnels.length === 0 ? (
               <EmptyState
                 heading="Create your first upsell funnel"
-                action={{ content: "Create funnel", url: "/app/funnels/new" }}
+                action={{
+                  content: "Create funnel",
+                  onAction: () => shopify.navigate("/app/funnels/new"),
+                }}
                 image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
               >
                 <p>Funnels show upsell offers to customers after checkout or on the cart page.</p>

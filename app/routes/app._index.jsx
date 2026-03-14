@@ -1,4 +1,5 @@
 import { useLoaderData } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   Page,
   Layout,
@@ -78,12 +79,11 @@ function StatCard({ title, value, subtitle, tone }) {
 
 export default function Index() {
   const { shop, stats } = useLoaderData();
+  const shopify = useAppBridge();
   const recentFunnels = shop?.funnels ?? [];
 
   const funnelRows = recentFunnels.map((funnel) => [
-    <a href={`/app/funnels/${funnel.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-      {funnel.name}
-    </a>,
+    funnel.name,
     <Badge
       tone={
         funnel.status === "ACTIVE" ? "success" :
@@ -102,7 +102,7 @@ export default function Index() {
       title="Upsell Dashboard"
       primaryAction={{
         content: "Create funnel",
-        url: "/app/funnels/new",
+        onAction: () => shopify.navigate("/app/funnels/new"),
       }}
     >
       <Layout>
@@ -120,12 +120,15 @@ export default function Index() {
             <BlockStack gap="400">
               <InlineStack align="space-between">
                 <Text as="h2" variant="headingMd">Recent funnels</Text>
-                <Button variant="plain" url="/app/funnels">View all</Button>
+                <Button variant="plain" onAction={() => shopify.navigate("/app/funnels")}>View all</Button>
               </InlineStack>
               {recentFunnels.length === 0 ? (
                 <EmptyState
                   heading="No funnels yet"
-                  action={{ content: "Create your first funnel", url: "/app/funnels/new" }}
+                  action={{
+                    content: "Create your first funnel",
+                    onAction: () => shopify.navigate("/app/funnels/new"),
+                  }}
                   image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                 >
                   <p>Create upsell funnels to show offers after checkout or on the cart page.</p>
@@ -147,13 +150,13 @@ export default function Index() {
               <BlockStack gap="300">
                 <Text as="h2" variant="headingMd">Quick actions</Text>
                 <Divider />
-                <Button fullWidth url="/app/funnels/new" variant="primary">
+                <Button fullWidth onAction={() => shopify.navigate("/app/funnels/new")} variant="primary">
                   + New post-purchase funnel
                 </Button>
-                <Button fullWidth url="/app/funnels/new?type=PRE_PURCHASE_CART">
+                <Button fullWidth onAction={() => shopify.navigate("/app/funnels/new?type=PRE_PURCHASE_CART")}>
                   + New cart page upsell
                 </Button>
-                <Button fullWidth url="/app/analytics" variant="plain">
+                <Button fullWidth onAction={() => shopify.navigate("/app/analytics")} variant="plain">
                   View analytics →
                 </Button>
               </BlockStack>

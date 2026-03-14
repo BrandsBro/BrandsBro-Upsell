@@ -1,4 +1,5 @@
 import { useLoaderData } from "react-router";
+import { useAppBridge } from '@shopify/app-bridge-react';
 import {
   Page,
   Layout,
