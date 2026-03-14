@@ -1,10 +1,9 @@
-import { useLoaderData, useNavigate } from "react-router";
+import { useLoaderData } from "react-router";
 import {
   Page,
   Layout,
   Card,
   Text,
-  Button,
   BlockStack,
   Badge,
   IndexTable,
@@ -33,7 +32,6 @@ export const loader = async ({ request }) => {
 
 export default function FunnelsPage() {
   const { funnels } = useLoaderData();
-  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState([]);
   const [queryValue, setQueryValue] = useState("");
 
@@ -57,10 +55,11 @@ export default function FunnelsPage() {
       key={funnel.id}
       selected={selectedResources.includes(funnel.id)}
       position={index}
-      onClick={() => navigate(`/app/funnels/${funnel.id}`)}
     >
       <IndexTable.Cell>
-        <Text fontWeight="bold" as="span">{funnel.name}</Text>
+        <a href={`/app/funnels/${funnel.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+          <Text fontWeight="bold" as="span">{funnel.name}</Text>
+        </a>
       </IndexTable.Cell>
       <IndexTable.Cell>
         <Badge tone={
@@ -94,7 +93,7 @@ export default function FunnelsPage() {
   return (
     <Page
       title="Funnels"
-      primaryAction={{ content: "Create funnel", onAction: () => navigate("/app/funnels/new") }}
+      primaryAction={{ content: "Create funnel", url: "/app/funnels/new" }}
       backAction={{ content: "Dashboard", url: "/app" }}
     >
       <Layout>
@@ -103,7 +102,7 @@ export default function FunnelsPage() {
             {funnels.length === 0 ? (
               <EmptyState
                 heading="Create your first upsell funnel"
-                action={{ content: "Create funnel", onAction: () => navigate("/app/funnels/new") }}
+                action={{ content: "Create funnel", url: "/app/funnels/new" }}
                 image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
               >
                 <p>Funnels show upsell offers to customers after checkout or on the cart page.</p>

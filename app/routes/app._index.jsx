@@ -1,4 +1,4 @@
-import { useLoaderData, useNavigate } from "react-router";
+import { useLoaderData } from "react-router";
 import {
   Page,
   Layout,
@@ -78,11 +78,12 @@ function StatCard({ title, value, subtitle, tone }) {
 
 export default function Index() {
   const { shop, stats } = useLoaderData();
-  const navigate = useNavigate();
   const recentFunnels = shop?.funnels ?? [];
 
   const funnelRows = recentFunnels.map((funnel) => [
-    funnel.name,
+    <a href={`/app/funnels/${funnel.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+      {funnel.name}
+    </a>,
     <Badge
       tone={
         funnel.status === "ACTIVE" ? "success" :
@@ -101,7 +102,7 @@ export default function Index() {
       title="Upsell Dashboard"
       primaryAction={{
         content: "Create funnel",
-        onAction: () => navigate("/app/funnels/new"),
+        url: "/app/funnels/new",
       }}
     >
       <Layout>
@@ -119,12 +120,12 @@ export default function Index() {
             <BlockStack gap="400">
               <InlineStack align="space-between">
                 <Text as="h2" variant="headingMd">Recent funnels</Text>
-                <Button variant="plain" onClick={() => navigate("/app/funnels")}>View all</Button>
+                <Button variant="plain" url="/app/funnels">View all</Button>
               </InlineStack>
               {recentFunnels.length === 0 ? (
                 <EmptyState
                   heading="No funnels yet"
-                  action={{ content: "Create your first funnel", onAction: () => navigate("/app/funnels/new") }}
+                  action={{ content: "Create your first funnel", url: "/app/funnels/new" }}
                   image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                 >
                   <p>Create upsell funnels to show offers after checkout or on the cart page.</p>
@@ -146,13 +147,13 @@ export default function Index() {
               <BlockStack gap="300">
                 <Text as="h2" variant="headingMd">Quick actions</Text>
                 <Divider />
-                <Button fullWidth onClick={() => navigate("/app/funnels/new")} variant="primary">
+                <Button fullWidth url="/app/funnels/new" variant="primary">
                   + New post-purchase funnel
                 </Button>
-                <Button fullWidth onClick={() => navigate("/app/funnels/new?type=PRE_PURCHASE_CART")}>
+                <Button fullWidth url="/app/funnels/new?type=PRE_PURCHASE_CART">
                   + New cart page upsell
                 </Button>
-                <Button fullWidth onClick={() => navigate("/app/analytics")} variant="plain">
+                <Button fullWidth url="/app/analytics" variant="plain">
                   View analytics →
                 </Button>
               </BlockStack>
