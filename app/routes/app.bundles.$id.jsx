@@ -1,5 +1,6 @@
 import { redirect } from "react-router";
 import { useLoaderData, useFetcher } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   Page,
   Layout,
@@ -44,7 +45,6 @@ export const action = async ({ request, params }) => {
   const formData = await request.formData();
   const intent = formData.get("intent");
 
-  // Product search
   if (intent === "search_products") {
     const query = String(formData.get("query") || "");
     const response = await admin.graphql(`
@@ -78,7 +78,6 @@ export const action = async ({ request, params }) => {
     return { searchResults: products };
   }
 
-  // Save bundle
   if (intent === "save_bundle") {
     const data = {
       name: String(formData.get("name")),
@@ -104,7 +103,7 @@ export const action = async ({ request, params }) => {
 
 export default function BundleFormPage() {
   const { bundle } = useLoaderData();
-  const navigate = useNavigate();
+  const shopify = useAppBridge();
   const fetcher = useFetcher();
 
   const [name, setName] = useState(bundle?.name ?? "");
@@ -164,7 +163,7 @@ export default function BundleFormPage() {
   return (
     <Page
       title={bundle ? `Edit: ${bundle.name}` : "Create bundle"}
-      backAction={{ content: "Bundles", url: "/app/bundles" }}
+      backAction={{ content: "Bundles", onAction: () => shopify.navigate("/app/bundles") }}
       primaryAction={{
         content: "Save & activate",
         loading: isSaving,
@@ -178,7 +177,6 @@ export default function BundleFormPage() {
         <Layout.Section>
           <BlockStack gap="400">
 
-            {/* Bundle name */}
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">Bundle details</Text>
@@ -193,7 +191,6 @@ export default function BundleFormPage() {
               </BlockStack>
             </Card>
 
-            {/* Product picker */}
             <Card>
               <BlockStack gap="400">
                 <InlineStack align="space-between">
@@ -296,7 +293,6 @@ export default function BundleFormPage() {
               </BlockStack>
             </Card>
 
-            {/* Discount */}
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">Bundle discount</Text>
@@ -325,7 +321,6 @@ export default function BundleFormPage() {
           </BlockStack>
         </Layout.Section>
 
-        {/* Right sidebar */}
         <Layout.Section variant="oneThird">
           <BlockStack gap="400">
 
