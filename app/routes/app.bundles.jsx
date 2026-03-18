@@ -1,4 +1,4 @@
-import { useLoaderData, useNavigate } from "react-router";
+import { useLoaderData, useNavigate, useSearchParams } from "react-router";
 import {
   Page, Layout, Card, Text, BlockStack, Badge,
   IndexTable, EmptyState, useIndexResourceState,
@@ -20,6 +20,7 @@ export const loader = async ({ request }) => {
 export default function BundlesPage() {
   const { bundles } = useLoaderData();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const { selectedResources, allResourcesSelected, handleSelectionChange } =
     useIndexResourceState(bundles);
