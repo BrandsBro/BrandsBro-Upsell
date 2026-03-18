@@ -1,14 +1,8 @@
-import { useLoaderData, useNavigate, useSearchParams } from "react-router";
+import { useLoaderData } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import {
-  Page,
-  Layout,
-  Card,
-  Text,
-  BlockStack,
-  Badge,
-  IndexTable,
-  EmptyState,
-  useIndexResourceState,
+  Page, Layout, Card, Text, BlockStack, Badge,
+  IndexTable, EmptyState, useIndexResourceState,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { prisma } from "../lib/prisma.server";
@@ -17,29 +11,16 @@ export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = await prisma.shop.findUnique({ where: { shopDomain: session.shop } });
   if (!shop) return { bundles: [] };
-
   const bundles = await prisma.bundle.findMany({
     where: { shopId: shop.id },
     orderBy: { createdAt: "desc" },
   });
-
   return { bundles };
 };
 
 export default function BundlesPage() {
   const { bundles } = useLoaderData();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-
-  const goTo = (path) => {
-    const shop = searchParams.get("shop");
-    const host = searchParams.get("host");
-    const params = new URLSearchParams();
-    if (shop) params.set("shop", shop);
-    if (host) params.set("host", host);
-    const qs = params.toString();
-    navigate(`${path}${qs ? "?" + qs : ""}`);
-  };
+  const shopify = useAppBridge();
 
   const { selectedResources, allResourcesSelected, handleSelectionChange } =
     useIndexResourceState(bundles);
@@ -48,15 +29,12 @@ export default function BundlesPage() {
     const products = bundle.products ?? [];
     return (
       <IndexTable.Row
-        id={bundle.id}
-        key={bundle.id}
+        id={bundle.id} key={bundle.id}
         selected={selectedResources.includes(bundle.id)}
         position={index}
-        onClick={() => goTo(`/app/bundles/${bundle.id}`)}
+        onClick={() => shopify.navigate(`/app/bundles/${bundle.id}`)}
       >
-        <IndexTable.Cell>
-          <Text fontWeight="bold" as="span">{bundle.name}</Text>
-        </IndexTable.Cell>
+        <IndexTable.Cell><Text fontWeight="bold" as="span">{bundle.name}</Text></IndexTable.Cell>
         <IndexTable.Cell>
           <Badge tone={bundle.status === "ACTIVE" ? "success" : "attention"}>
             {bundle.status.charAt(0) + bundle.status.slice(1).toLowerCase()}
@@ -64,23 +42,11 @@ export default function BundlesPage() {
         </IndexTable.Cell>
         <IndexTable.Cell>{products.length} products</IndexTable.Cell>
         <IndexTable.Cell>
-          {bundle.discountValue > 0
-            ? `${bundle.discountValue}${bundle.discountType === "PERCENTAGE" ? "%" : "$"} off`
-            : "No discount"}
+          {bundle.discountValue > 0 ? `${bundle.discountValue}${bundle.discountType === "PERCENTAGE" ? "%" : "$"} off` : "No discount"}
         </IndexTable.Cell>
-        <IndexTable.Cell>
-          <Badge tone={bundle.showOnProduct ? "success" : undefined}>
-            {bundle.showOnProduct ? "On" : "Off"}
-          </Badge>
-        </IndexTable.Cell>
-        <IndexTable.Cell>
-          <Badge tone={bundle.showOnCart ? "success" : undefined}>
-            {bundle.showOnCart ? "On" : "Off"}
-          </Badge>
-        </IndexTable.Cell>
-        <IndexTable.Cell>
-          {new Date(bundle.createdAt).toLocaleDateString()}
-        </IndexTable.Cell>
+        <IndexTable.Cell><Badge tone={bundle.showOnProduct ? "success" : undefined}>{bundle.showOnProduct ? "On" : "Off"}</Badge></IndexTable.Cell>
+        <IndexTable.Cell><Badge tone={bundle.showOnCart ? "success" : undefined}>{bundle.showOnCart ? "On" : "Off"}</Badge></IndexTable.Cell>
+        <IndexTable.Cell>{new Date(bundle.createdAt).toLocaleDateString()}</IndexTable.Cell>
       </IndexTable.Row>
     );
   });
@@ -88,11 +54,8 @@ export default function BundlesPage() {
   return (
     <Page
       title="Bundles"
-      primaryAction={{
-        content: "Create bundle",
-        onAction: () => goTo("/app/bundles/new"),
-      }}
-      backAction={{ content: "Dashboard", onAction: () => goTo("/app") }}
+      primaryAction={{ content: "Create bundle", onAction: () => shopify.navigate("/app/bundles/new") }}
+      backAction={{ content: "Dashboard", onAction: () => shopify.navigate("/app") }}
     >
       <Layout>
         <Layout.Section>
@@ -100,10 +63,7 @@ export default function BundlesPage() {
             {bundles.length === 0 ? (
               <EmptyState
                 heading="Create your first product bundle"
-                action={{
-                  content: "Create bundle",
-                  onAction: () => goTo("/app/bundles/new"),
-                }}
+                action={{ content: "Create bundle", onAction: () => shopify.navigate("/app/bundles/new") }}
                 image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
               >
                 <p>Bundles combine multiple products at a discount and show on product and cart pages.</p>
@@ -115,13 +75,8 @@ export default function BundlesPage() {
                 selectedItemsCount={allResourcesSelected ? "All" : selectedResources.length}
                 onSelectionChange={handleSelectionChange}
                 headings={[
-                  { title: "Name" },
-                  { title: "Status" },
-                  { title: "Products" },
-                  { title: "Discount" },
-                  { title: "Product page" },
-                  { title: "Cart page" },
-                  { title: "Created" },
+                  { title: "Name" }, { title: "Status" }, { title: "Products" },
+                  { title: "Discount" }, { title: "Product page" }, { title: "Cart page" }, { title: "Created" },
                 ]}
               >
                 {rowMarkup}
