@@ -1,6 +1,6 @@
 import { redirect } from "react-router";
 import { useLoaderData, useFetcher } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
+
 import {
   Page,
   Layout,
@@ -103,7 +103,7 @@ export const action = async ({ request, params }) => {
 
 export default function BundleFormPage() {
   const { bundle } = useLoaderData();
-  const shopify = useAppBridge();
+  const navigate = useNavigate();
   const fetcher = useFetcher();
 
   const [name, setName] = useState(bundle?.name ?? "");
@@ -163,7 +163,7 @@ export default function BundleFormPage() {
   return (
     <Page
       title={bundle ? `Edit: ${bundle.name}` : "Create bundle"}
-      backAction={{ content: "Bundles", onAction: () => shopify.navigate("/app/bundles") }}
+      backAction={{ content: "Bundles", onAction: () => navigate("/app/bundles") }}
       primaryAction={{
         content: "Save & activate",
         loading: isSaving,

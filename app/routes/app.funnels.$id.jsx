@@ -1,6 +1,6 @@
 import { redirect } from "react-router";
 import { useLoaderData, useSubmit, useNavigation } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
+
 import {
   Page,
   Layout,
@@ -65,7 +65,7 @@ export const action = async ({ request, params }) => {
 
 export default function FunnelFormPage() {
   const { funnel, defaultType } = useLoaderData();
-  const shopify = useAppBridge();
+  const navigate = useNavigate();
   const submit = useSubmit();
   const navigation = useNavigation();
   const isLoading = navigation.state === "submitting";
@@ -98,7 +98,7 @@ export default function FunnelFormPage() {
   return (
     <Page
       title={funnel ? `Edit: ${funnel.name}` : "Create funnel"}
-      backAction={{ content: "Funnels", onAction: () => shopify.navigate("/app/funnels") }}
+      backAction={{ content: "Funnels", onAction: () => navigate("/app/funnels") }}
       primaryAction={{
         content: "Save & activate",
         loading: isLoading,

@@ -1,5 +1,5 @@
-import { useLoaderData } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
+import { useLoaderData, useNavigate } from "react-router";
+
 import {
   Page,
   Layout,
@@ -33,7 +33,7 @@ export const loader = async ({ request }) => {
 
 export default function FunnelsPage() {
   const { funnels } = useLoaderData();
-  const shopify = useAppBridge();
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState([]);
   const [queryValue, setQueryValue] = useState("");
 
@@ -57,7 +57,7 @@ export default function FunnelsPage() {
       key={funnel.id}
       selected={selectedResources.includes(funnel.id)}
       position={index}
-      onClick={() => shopify.navigate(`/app/funnels/${funnel.id}`)}
+      onClick={() => navigate(`/app/funnels/${funnel.id}`)}
     >
       <IndexTable.Cell>
         <Text fontWeight="bold" as="span">{funnel.name}</Text>
@@ -96,9 +96,9 @@ export default function FunnelsPage() {
       title="Funnels"
       primaryAction={{
         content: "Create funnel",
-        onAction: () => shopify.navigate("/app/funnels/new"),
+        onAction: () => navigate("/app/funnels/new"),
       }}
-      backAction={{ content: "Dashboard", onAction: () => shopify.navigate("/app") }}
+      backAction={{ content: "Dashboard", onAction: () => navigate("/app") }}
     >
       <Layout>
         <Layout.Section>
@@ -108,7 +108,7 @@ export default function FunnelsPage() {
                 heading="Create your first upsell funnel"
                 action={{
                   content: "Create funnel",
-                  onAction: () => shopify.navigate("/app/funnels/new"),
+                  onAction: () => navigate("/app/funnels/new"),
                 }}
                 image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
               >
