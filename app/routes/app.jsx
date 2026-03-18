@@ -14,7 +14,7 @@ export const loader = async ({ request }) => {
 
   await prisma.shop.upsert({
     where: { shopDomain: session.shop },
-    update: { isActive: true },
+    update: { isActive: true, accessToken: session.accessToken },
     create: {
       shopDomain: session.shop,
       accessToken: session.accessToken,
@@ -23,16 +23,20 @@ export const loader = async ({ request }) => {
     },
   });
 
-  return { apiKey: process.env.SHOPIFY_API_KEY || "", host };
+  return {
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+    host,
+    shop: session.shop,
+  };
 };
 
 export default function App() {
-  const { apiKey, host } = useLoaderData();
+  const { apiKey, host, shop } = useLoaderData();
   return (
-    <ShopifyAppProvider embedded apiKey={apiKey} host={host}>
+    <ShopifyAppProvider embedded apiKey={apiKey} host={host} shop={shop}>
       <PolarisAppProvider i18n={enTranslations}>
         <ui-nav-menu>
-          <a href="/app">Home</a>
+          <a href="/app" rel="home">Home</a>
           <a href="/app/funnels">Funnels</a>
           <a href="/app/bundles">Bundles</a>
           <a href="/app/analytics">Analytics</a>
