@@ -33,7 +33,7 @@ export const loader = async ({ request }) => {
 
 export default function FunnelsPage() {
   const { funnels } = useLoaderData();
-  const navigate = useNavigate();
+  
   const [statusFilter, setStatusFilter] = useState([]);
   const [queryValue, setQueryValue] = useState("");
 

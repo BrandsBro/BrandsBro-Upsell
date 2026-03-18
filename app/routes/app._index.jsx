@@ -79,7 +79,7 @@ function StatCard({ title, value, subtitle, tone }) {
 
 export default function Index() {
   const { shop, stats } = useLoaderData();
-  const navigate = useNavigate();
+  
   const recentFunnels = shop?.funnels ?? [];
 
   const funnelRows = recentFunnels.map((funnel) => [

@@ -1,5 +1,5 @@
 import { useLoaderData } from "react-router";
-import { useNavigate } from "@shopify/app-bridge-react";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import {
   Page, Layout, Card, Text, BlockStack, Badge,
   IndexTable, EmptyState, useIndexResourceState,
@@ -20,7 +20,15 @@ export const loader = async ({ request }) => {
 
 export default function BundlesPage() {
   const { bundles } = useLoaderData();
-  const navigate = useNavigate();
+  const shopify = useAppBridge();
+
+  const goTo = (path) => {
+    shopify.idToken().then((token) => {
+      const host = new URLSearchParams(window.location.search).get("host") || "";
+      const shop = new URLSearchParams(window.location.search).get("shop") || "";
+      window.location.href = `${path}?shop=${shop}&host=${host}`;
+    });
+  };
 
   const { selectedResources, allResourcesSelected, handleSelectionChange } =
     useIndexResourceState(bundles);
@@ -32,7 +40,7 @@ export default function BundlesPage() {
         id={bundle.id} key={bundle.id}
         selected={selectedResources.includes(bundle.id)}
         position={index}
-        onClick={() => navigate(`/app/bundles/${bundle.id}`)}
+        onClick={() => goTo(`/app/bundles/${bundle.id}`)}
       >
         <IndexTable.Cell><Text fontWeight="bold" as="span">{bundle.name}</Text></IndexTable.Cell>
         <IndexTable.Cell>
@@ -54,8 +62,8 @@ export default function BundlesPage() {
   return (
     <Page
       title="Bundles"
-      primaryAction={{ content: "Create bundle", onAction: () => navigate("/app/bundles/new") }}
-      backAction={{ content: "Dashboard", onAction: () => navigate("/app") }}
+      primaryAction={{ content: "Create bundle", onAction: () => goTo("/app/bundles/new") }}
+      backAction={{ content: "Dashboard", onAction: () => goTo("/app") }}
     >
       <Layout>
         <Layout.Section>
@@ -63,7 +71,7 @@ export default function BundlesPage() {
             {bundles.length === 0 ? (
               <EmptyState
                 heading="Create your first product bundle"
-                action={{ content: "Create bundle", onAction: () => navigate("/app/bundles/new") }}
+                action={{ content: "Create bundle", onAction: () => goTo("/app/bundles/new") }}
                 image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
               >
                 <p>Bundles combine multiple products at a discount and show on product and cart pages.</p>
