@@ -10,7 +10,14 @@ import { authenticate } from "../shopify.server";
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const url = new URL(request.url);
-  const host = url.searchParams.get("host") || "";
+  let host = url.searchParams.get("host") || "";
+
+  // Read host from cookie if not in URL
+  const cookieHeader = request.headers.get("Cookie") || "";
+  if (!host) {
+    const match = cookieHeader.match(/shopify_host=([^;]+)/);
+    if (match) host = decodeURIComponent(match[1]);
+  }
 
   await prisma.shop.upsert({
     where: { shopDomain: session.shop },
@@ -23,11 +30,15 @@ export const loader = async ({ request }) => {
     },
   });
 
-  return {
-    apiKey: process.env.SHOPIFY_API_KEY || "",
-    host,
-    shop: session.shop,
-  };
+  const headers = new Headers();
+  if (url.searchParams.get("host")) {
+    headers.append("Set-Cookie", `shopify_host=${encodeURIComponent(host)}; Path=/; SameSite=None; Secure`);
+  }
+
+  return new Response(
+    JSON.stringify({ apiKey: process.env.SHOPIFY_API_KEY || "", host, shop: session.shop }),
+    { headers: { "Content-Type": "application/json", ...Object.fromEntries(headers) } }
+  );
 };
 
 export default function App() {
