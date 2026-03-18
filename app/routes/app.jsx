@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma.server";
-import { Outlet, useLoaderData, useRouteError, NavLink } from "react-router";
+import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
@@ -9,6 +9,9 @@ import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
+  const url = new URL(request.url);
+  const host = url.searchParams.get("host") || "";
+
   await prisma.shop.upsert({
     where: { shopDomain: session.shop },
     update: { isActive: true },
@@ -19,19 +22,20 @@ export const loader = async ({ request }) => {
       isActive: true,
     },
   });
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+
+  return { apiKey: process.env.SHOPIFY_API_KEY || "", host };
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData();
+  const { apiKey, host } = useLoaderData();
   return (
-    <ShopifyAppProvider embedded apiKey={apiKey}>
+    <ShopifyAppProvider embedded apiKey={apiKey} host={host}>
       <PolarisAppProvider i18n={enTranslations}>
         <ui-nav-menu>
-          <NavLink to="/app" end>Home</NavLink>
-          <NavLink to="/app/funnels">Funnels</NavLink>
-          <NavLink to="/app/bundles">Bundles</NavLink>
-          <NavLink to="/app/analytics">Analytics</NavLink>
+          <a href="/app">Home</a>
+          <a href="/app/funnels">Funnels</a>
+          <a href="/app/bundles">Bundles</a>
+          <a href="/app/analytics">Analytics</a>
         </ui-nav-menu>
         <Outlet />
       </PolarisAppProvider>
