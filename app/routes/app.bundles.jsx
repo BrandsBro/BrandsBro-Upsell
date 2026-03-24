@@ -1,7 +1,8 @@
 import { useLoaderData, useNavigate, Outlet, useMatches, useFetcher } from "react-router";
 import {
-  Page, Layout, Card, Text, BlockStack, Badge,
-  IndexTable, EmptyState, useIndexResourceState, Button, Modal, InlineStack, Tooltip,
+  Page, Layout, Card, Text, Badge,
+  IndexTable, EmptyState, useIndexResourceState,
+  Button, Modal, InlineStack, Tooltip,
 } from "@shopify/polaris";
 import { EditIcon, DeleteIcon, DuplicateIcon } from "@shopify/polaris-icons";
 import { useState } from "react";
@@ -100,16 +101,16 @@ export default function BundlesPage() {
               <Button
                 variant="plain"
                 icon={EditIcon}
-                onClick={() => navigate(`/app/bundles/${bundle.id}`)}
-                accessibilityLabel="Edit bundle"
+                onClick={(e) => { e.stopPropagation(); navigate(`/app/bundles/${bundle.id}`); }}
+                accessibilityLabel="Edit"
               />
             </Tooltip>
             <Tooltip content="Duplicate">
               <Button
                 variant="plain"
                 icon={DuplicateIcon}
-                onClick={() => fetcher.submit({ intent: "duplicate", bundleId: bundle.id }, { method: "post" })}
-                accessibilityLabel="Duplicate bundle"
+                onClick={(e) => { e.stopPropagation(); fetcher.submit({ intent: "duplicate", bundleId: bundle.id }, { method: "post" }); }}
+                accessibilityLabel="Duplicate"
               />
             </Tooltip>
             <Tooltip content="Delete">
@@ -117,8 +118,8 @@ export default function BundlesPage() {
                 variant="plain"
                 tone="critical"
                 icon={DeleteIcon}
-                onClick={() => setDeleteModal({ open: true, bundleId: bundle.id, bundleName: bundle.name })}
-                accessibilityLabel="Delete bundle"
+                onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, bundleId: bundle.id, bundleName: bundle.name }); }}
+                accessibilityLabel="Delete"
               />
             </Tooltip>
           </InlineStack>
@@ -150,7 +151,7 @@ export default function BundlesPage() {
       >
         <Modal.Section>
           <Text as="p">
-            Are you sure you want to delete <strong>{deleteModal.bundleName}</strong>? This action cannot be undone.
+            Are you sure you want to delete <strong>{deleteModal.bundleName}</strong>? This cannot be undone.
           </Text>
         </Modal.Section>
       </Modal>
