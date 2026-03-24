@@ -1,7 +1,7 @@
 import { useLoaderData, useNavigate, Outlet, useMatches, useFetcher } from "react-router";
 import {
   Page, Layout, Card, Text, BlockStack, Badge,
-  IndexTable, EmptyState, useIndexResourceState, Button, Modal,
+  IndexTable, EmptyState, useIndexResourceState, Button, Modal, InlineStack,
 } from "@shopify/polaris";
 import { useState } from "react";
 import { authenticate } from "../shopify.server";
@@ -22,8 +22,23 @@ export const action = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = await prisma.shop.findUnique({ where: { shopDomain: session.shop } });
   const formData = await request.formData();
+  const intent = String(formData.get("intent"));
   const bundleId = String(formData.get("bundleId"));
-  await prisma.bundle.deleteMany({ where: { id: bundleId, shopId: shop.id } });
+
+  if (intent === "delete") {
+    await prisma.bundle.deleteMany({ where: { id: bundleId, shopId: shop.id } });
+  }
+
+  if (intent === "duplicate") {
+    const original = await prisma.bundle.findFirst({ where: { id: bundleId, shopId: shop.id } });
+    if (original) {
+      const { id, createdAt, updatedAt, ...rest } = original;
+      await prisma.bundle.create({
+        data: { ...rest, name: `${original.name} (Copy)`, status: "DRAFT", shopId: shop.id },
+      });
+    }
+  }
+
   return { success: true };
 };
 
@@ -41,8 +56,12 @@ export default function BundlesPage() {
   if (isChildRoute) return <Outlet />;
 
   const handleDeleteConfirm = () => {
-    fetcher.submit({ bundleId: deleteModal.bundleId }, { method: "post" });
+    fetcher.submit({ intent: "delete", bundleId: deleteModal.bundleId }, { method: "post" });
     setDeleteModal({ open: false, bundleId: null, bundleName: "" });
+  };
+
+  const handleDuplicate = (bundleId) => {
+    fetcher.submit({ intent: "duplicate", bundleId }, { method: "post" });
   };
 
   const rowMarkup = bundles.map((bundle, index) => {
@@ -54,12 +73,7 @@ export default function BundlesPage() {
         position={index}
       >
         <IndexTable.Cell>
-          <button
-            onClick={() => navigate(`/app/bundles/${bundle.id}`)}
-            style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
-          >
-            <Text fontWeight="bold" as="span">{bundle.name}</Text>
-          </button>
+          <Text fontWeight="bold" as="span">{bundle.name}</Text>
         </IndexTable.Cell>
         <IndexTable.Cell>
           <Badge tone={bundle.status === "ACTIVE" ? "success" : "attention"}>
@@ -84,13 +98,21 @@ export default function BundlesPage() {
           {new Date(bundle.createdAt).toLocaleDateString()}
         </IndexTable.Cell>
         <IndexTable.Cell>
-          <Button
-            tone="critical"
-            variant="plain"
-            onClick={() => setDeleteModal({ open: true, bundleId: bundle.id, bundleName: bundle.name })}
-          >
-            Delete
-          </Button>
+          <InlineStack gap="200">
+            <Button variant="plain" onClick={() => navigate(`/app/bundles/${bundle.id}`)}>
+              Edit
+            </Button>
+            <Button variant="plain" onClick={() => handleDuplicate(bundle.id)}>
+              Duplicate
+            </Button>
+            <Button
+              variant="plain"
+              tone="critical"
+              onClick={() => setDeleteModal({ open: true, bundleId: bundle.id, bundleName: bundle.name })}
+            >
+              Delete
+            </Button>
+          </InlineStack>
         </IndexTable.Cell>
       </IndexTable.Row>
     );
