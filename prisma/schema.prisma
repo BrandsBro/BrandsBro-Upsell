@@ -97,6 +97,9 @@ model Bundle {
   products      Json         @default("[]")
   showOnProduct Boolean      @default(true)
   showOnCart    Boolean      @default(true)
+  displayProducts Json         @default("[]")
+  applyToAll    Boolean      @default(false)
+  displayOnAll  Boolean      @default(true)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
