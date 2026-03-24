@@ -52,60 +52,57 @@
       btn.addEventListener("click", function() {
         btn.disabled = true;
         btn.textContent = "Adding...";
-
-        // Use the theme's existing add-to-cart form to trigger cart drawer
-        // This works on ANY theme because we use the theme's own form
-        var existingForm = document.querySelector("form[action='/cart/add']");
-        if (!existingForm) existingForm = document.querySelector(".product-form form");
-
-        // Add all bundle items one by one using the theme form
         var items = products.map(function(p) {
-          return p.variantId.split("/").pop();
+          return { id: p.variantId.split("/").pop(), quantity: 1 };
         });
 
-        // Add items sequentially then trigger theme's cart open
-        var addNext = function(index) {
-          if (index >= items.length) {
-            // All added - trigger theme cart
-            btn.textContent = "✓ Added!";
-            btn.style.background = "#008060";
+        fetch("/cart/add.js", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: items })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function() {
+          btn.textContent = "✓ Added!";
+          btn.style.background = "#008060";
 
-            // Set the form's variant id to last item and submit
-            // This triggers the theme's own cart open behavior
-            if (existingForm) {
-              var input = existingForm.querySelector("[name='id']");
-              if (input) {
-                var originalValue = input.value;
-                input.value = items[items.length - 1];
-                var submitBtn = existingForm.querySelector("[type='submit']");
-                if (submitBtn) submitBtn.click();
-                setTimeout(function() { input.value = originalValue; }, 100);
-              }
-            }
+          // Mimic exactly what Shopify themes do after add to cart
+          // This is the standard Shopify AJAX API pattern
+          var addEvent = new CustomEvent("dispatch:cart-drawer:open", { bubbles: true });
+          document.dispatchEvent(addEvent);
 
-            setTimeout(function() {
-              btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
-              btn.style.background = "#000";
-              btn.disabled = false;
-            }, 3000);
-            return;
+          // Also publish to Shopify's PubSub if available
+          if (window.Shopify && window.Shopify.PubSub) {
+            window.Shopify.PubSub.publish("cart:update", { cart: {} });
           }
 
-          fetch("/cart/add.js", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ items: [{ id: items[index], quantity: 1 }] })
-          })
-          .then(function() { addNext(index + 1); })
-          .catch(function(err) {
-            console.error("Error adding item:", err);
-            btn.textContent = "Error — try again";
+          // Trigger theme's cart update
+          fetch("/cart.js")
+            .then(function(r) { return r.json(); })
+            .then(function(cart) {
+              var cartUpdateEvent = new CustomEvent("cart:update", {
+                bubbles: true,
+                detail: { cart: cart }
+              });
+              document.dispatchEvent(cartUpdateEvent);
+              window.dispatchEvent(cartUpdateEvent);
+
+              // Shopify's own publish system
+              if (window.publish) window.publish("cart:update", cart);
+            });
+
+          setTimeout(function() {
+            btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
             btn.style.background = "#000";
             btn.disabled = false;
-          });
-        };
-
-        addNext(0);
+          }, 3000);
+        })
+        .catch(function(err) {
+          console.error("Cart error:", err);
+          btn.textContent = "Error — try again";
+          btn.style.background = "#000";
+          btn.disabled = false;
+        });
       });
     })
     .catch(function(e) { console.error("Bundle error:", e); });
