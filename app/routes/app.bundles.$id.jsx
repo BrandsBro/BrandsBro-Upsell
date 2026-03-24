@@ -74,22 +74,23 @@ export const action = async ({ request, params }) => {
   // Create automatic discount function once per shop
   if (status === "ACTIVE") {
     try {
-      const discountResult = await admin.graphql(`
-        mutation {
+      const discountResult = await admin.graphql(
+        `mutation CreateDiscount($functionId: String!, $startsAt: DateTime!) {
           discountAutomaticAppCreate(automaticAppDiscount: {
             title: "BrandsBro Bundle Discount"
-            function: { id: "${FUNCTION_ID}" }
-            startsAt: "${new Date().toISOString()}"
+            functionId: $functionId
+            startsAt: $startsAt
           }) {
             automaticAppDiscount {
               discountId
             }
             userErrors { field message }
           }
-        }
-      `);
+        }`,
+        { variables: { functionId: FUNCTION_ID, startsAt: new Date().toISOString() } }
+      );
       const discountData = await discountResult.json();
-      console.log("Discount result:", JSON.stringify(discountData?.errors?.graphQLErrors || discountData?.data));
+      console.log("DISCOUNT DATA:", JSON.stringify(discountData));
       const discountId = discountData?.data?.discountAutomaticAppCreate?.automaticAppDiscount?.discountId;
       if (discountId) {
         await prisma.shop.update({ where: { shopDomain: session.shop }, data: { discountId } });
