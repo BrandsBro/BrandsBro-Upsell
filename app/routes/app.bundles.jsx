@@ -1,8 +1,9 @@
 import { useLoaderData, useNavigate, Outlet, useMatches, useFetcher } from "react-router";
 import {
   Page, Layout, Card, Text, BlockStack, Badge,
-  IndexTable, EmptyState, useIndexResourceState, Button,
+  IndexTable, EmptyState, useIndexResourceState, Button, Modal,
 } from "@shopify/polaris";
+import { useState } from "react";
 import { authenticate } from "../shopify.server";
 import { prisma } from "../lib/prisma.server";
 
@@ -31,16 +32,17 @@ export default function BundlesPage() {
   const navigate = useNavigate();
   const fetcher = useFetcher();
   const matches = useMatches();
+  const [deleteModal, setDeleteModal] = useState({ open: false, bundleId: null, bundleName: "" });
+
   const { selectedResources, allResourcesSelected, handleSelectionChange } =
     useIndexResourceState(bundles);
 
   const isChildRoute = matches.some(m => m.id === "routes/app.bundles.$id");
   if (isChildRoute) return <Outlet />;
 
-  const handleDelete = (bundleId) => {
-    if (confirm("Are you sure you want to delete this bundle?")) {
-      fetcher.submit({ bundleId }, { method: "post" });
-    }
+  const handleDeleteConfirm = () => {
+    fetcher.submit({ bundleId: deleteModal.bundleId }, { method: "post" });
+    setDeleteModal({ open: false, bundleId: null, bundleName: "" });
   };
 
   const rowMarkup = bundles.map((bundle, index) => {
@@ -85,7 +87,7 @@ export default function BundlesPage() {
           <Button
             tone="critical"
             variant="plain"
-            onClick={() => handleDelete(bundle.id)}
+            onClick={() => setDeleteModal({ open: true, bundleId: bundle.id, bundleName: bundle.name })}
           >
             Delete
           </Button>
@@ -100,6 +102,28 @@ export default function BundlesPage() {
       primaryAction={{ content: "Create bundle", onAction: () => navigate("/app/bundles/new") }}
       backAction={{ content: "Dashboard", onAction: () => navigate("/app") }}
     >
+      <Modal
+        open={deleteModal.open}
+        onClose={() => setDeleteModal({ open: false, bundleId: null, bundleName: "" })}
+        title="Delete bundle?"
+        primaryAction={{
+          content: "Delete",
+          destructive: true,
+          loading: fetcher.state === "submitting",
+          onAction: handleDeleteConfirm,
+        }}
+        secondaryActions={[{
+          content: "Cancel",
+          onAction: () => setDeleteModal({ open: false, bundleId: null, bundleName: "" }),
+        }]}
+      >
+        <Modal.Section>
+          <Text as="p">
+            Are you sure you want to delete <strong>{deleteModal.bundleName}</strong>? This action cannot be undone.
+          </Text>
+        </Modal.Section>
+      </Modal>
+
       <Layout>
         <Layout.Section>
           <Card padding="0">
