@@ -96,7 +96,7 @@ export const action = async ({ request, params }) => {
         await prisma.shop.update({ where: { shopDomain: session.shop }, data: { discountId } });
       }
     } catch (e) {
-      console.error("Discount creation error:", e);
+      console.error("Discount creation error:", e?.message, JSON.stringify(e?.graphQLErrors || e?.response || e));
     }
   }
 
