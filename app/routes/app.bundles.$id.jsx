@@ -78,7 +78,7 @@ export const action = async ({ request, params }) => {
         mutation {
           discountAutomaticAppCreate(automaticAppDiscount: {
             title: "BrandsBro Bundle Discount"
-            functionId: "${FUNCTION_ID}"
+            function: { id: "${FUNCTION_ID}" }
             startsAt: "${new Date().toISOString()}"
           }) {
             automaticAppDiscount {
