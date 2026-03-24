@@ -90,7 +90,7 @@ export const action = async ({ request, params }) => {
         { variables: { functionId: FUNCTION_ID, startsAt: new Date().toISOString() } }
       );
       const discountData = await discountResult.json();
-      console.log("DISCOUNT DATA:", JSON.stringify(discountData));
+      console.log("DISCOUNT DATA:", JSON.stringify(discountData?.errors?.graphQLErrors));
       const discountId = discountData?.data?.discountAutomaticAppCreate?.automaticAppDiscount?.discountId;
       if (discountId) {
         await prisma.shop.update({ where: { shopDomain: session.shop }, data: { discountId } });
