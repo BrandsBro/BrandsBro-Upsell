@@ -61,9 +61,11 @@ export const action = async ({ request, params }) => {
     discountType: String(formData.get("discountType")),
     discountValue: parseFloat(String(formData.get("discountValue"))) || 0,
     products: JSON.parse(String(formData.get("products") || "[]")),
+    displayProducts: JSON.parse(String(formData.get("displayProducts") || "[]")),
     showOnProduct: formData.get("showOnProduct") === "true",
     showOnCart: formData.get("showOnCart") === "true",
     applyToAll: formData.get("applyToAll") === "true",
+    displayOnAll: formData.get("displayOnAll") === "true",
   };
 
   if (params.id && params.id !== "new") {
@@ -87,39 +89,52 @@ export default function BundleFormPage() {
   const [showOnProduct, setShowOnProduct] = useState(bundle?.showOnProduct ?? true);
   const [showOnCart, setShowOnCart] = useState(bundle?.showOnCart ?? true);
   const [applyToAll, setApplyToAll] = useState(bundle?.applyToAll ?? false);
+  const [displayOnAll, setDisplayOnAll] = useState(bundle?.displayOnAll ?? true);
   const [bundleProducts, setBundleProducts] = useState(bundle?.products ?? []);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedInPicker, setSelectedInPicker] = useState([]);
+  const [displayProducts, setDisplayProducts] = useState(bundle?.displayProducts ?? []);
+
+  // Bundle products picker
+  const [bundlePickerOpen, setBundlePickerOpen] = useState(false);
+  const [bundlePickerSearch, setBundlePickerSearch] = useState("");
+  const [selectedInBundlePicker, setSelectedInBundlePicker] = useState([]);
+
+  // Display products picker
+  const [displayPickerOpen, setDisplayPickerOpen] = useState(false);
+  const [displayPickerSearch, setDisplayPickerSearch] = useState("");
+  const [selectedInDisplayPicker, setSelectedInDisplayPicker] = useState([]);
 
   const isSaving = fetcher.state === "submitting";
 
-  const filteredProducts = allProducts.filter(p =>
-    p.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleOpenPicker = useCallback(() => {
-    setSelectedInPicker(bundleProducts.map(p => p.id));
-    setPickerOpen(true);
-    setSearchQuery("");
+  // Bundle products picker handlers
+  const handleOpenBundlePicker = useCallback(() => {
+    setSelectedInBundlePicker(bundleProducts.map(p => p.id));
+    setBundlePickerOpen(true);
+    setBundlePickerSearch("");
   }, [bundleProducts]);
 
-  const handleConfirmPicker = useCallback(() => {
-    const selected = allProducts.filter(p => selectedInPicker.includes(p.id));
-    setBundleProducts(selected);
-    setPickerOpen(false);
-  }, [selectedInPicker, allProducts]);
+  const handleConfirmBundlePicker = useCallback(() => {
+    setBundleProducts(allProducts.filter(p => selectedInBundlePicker.includes(p.id)));
+    setBundlePickerOpen(false);
+  }, [selectedInBundlePicker, allProducts]);
 
-  const toggleProduct = useCallback((productId) => {
-    setSelectedInPicker(prev =>
-      prev.includes(productId)
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
-    );
+  // Display products picker handlers
+  const handleOpenDisplayPicker = useCallback(() => {
+    setSelectedInDisplayPicker(displayProducts.map(p => p.id));
+    setDisplayPickerOpen(true);
+    setDisplayPickerSearch("");
+  }, [displayProducts]);
+
+  const handleConfirmDisplayPicker = useCallback(() => {
+    setDisplayProducts(allProducts.filter(p => selectedInDisplayPicker.includes(p.id)));
+    setDisplayPickerOpen(false);
+  }, [selectedInDisplayPicker, allProducts]);
+
+  const toggleBundleProduct = useCallback((id) => {
+    setSelectedInBundlePicker(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   }, []);
 
-  const removeProduct = useCallback((productId) => {
-    setBundleProducts(prev => prev.filter(p => p.id !== productId));
+  const toggleDisplayProduct = useCallback((id) => {
+    setSelectedInDisplayPicker(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   }, []);
 
   const handleSave = useCallback((saveStatus) => {
@@ -130,13 +145,70 @@ export default function BundleFormPage() {
         discountType,
         discountValue,
         products: JSON.stringify(bundleProducts),
+        displayProducts: JSON.stringify(displayProducts),
         showOnProduct: String(showOnProduct),
         showOnCart: String(showOnCart),
         applyToAll: String(applyToAll),
+        displayOnAll: String(displayOnAll),
       },
       { method: "post" }
     );
-  }, [name, discountType, discountValue, bundleProducts, showOnProduct, showOnCart, applyToAll, fetcher]);
+  }, [name, discountType, discountValue, bundleProducts, displayProducts, showOnProduct, showOnCart, applyToAll, displayOnAll, fetcher]);
+
+  const ProductPickerModal = ({ open, onClose, onConfirm, selected, onToggle, search, onSearch, title, confirmLabel }) => (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={title}
+      primaryAction={{ content: confirmLabel, onAction: onConfirm }}
+      secondaryActions={[{ content: "Cancel", onAction: onClose }]}
+    >
+      <Modal.Section>
+        <TextField
+          label="Search" labelHidden
+          value={search}
+          onChange={onSearch}
+          placeholder="Search products..."
+          autoComplete="off"
+          clearButton
+          onClearButtonClick={() => onSearch("")}
+        />
+      </Modal.Section>
+      <Modal.Section flush>
+        <div style={{ maxHeight: 400, overflowY: "auto" }}>
+          {allProducts
+            .filter(p => p.title.toLowerCase().includes(search.toLowerCase()))
+            .map((product) => (
+              <div
+                key={product.id}
+                onClick={() => onToggle(product.id)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "12px 20px", cursor: "pointer",
+                  background: selected.includes(product.id) ? "#f0f7f4" : "white",
+                  borderBottom: "1px solid #e5e5e5",
+                }}
+              >
+                <input type="checkbox" checked={selected.includes(product.id)}
+                  onChange={() => onToggle(product.id)}
+                  style={{ width: 18, height: 18, cursor: "pointer" }} />
+                {product.image && (
+                  <img src={product.image} alt={product.title}
+                    style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e5e5" }} />
+                )}
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>{product.title}</p>
+                  <p style={{ margin: 0, color: "#666", fontSize: 13 }}>${product.price}</p>
+                </div>
+                {selected.includes(product.id) && (
+                  <span style={{ color: "#008060", fontWeight: 600, fontSize: 13 }}>✓</span>
+                )}
+              </div>
+            ))}
+        </div>
+      </Modal.Section>
+    </Modal>
+  );
 
   return (
     <Page
@@ -147,71 +219,31 @@ export default function BundleFormPage() {
         loading: isSaving,
         onAction: () => handleSave("ACTIVE"),
       }}
-      secondaryActions={[
-        { content: "Save as draft", onAction: () => handleSave("DRAFT") },
-      ]}
+      secondaryActions={[{ content: "Save as draft", onAction: () => handleSave("DRAFT") }]}
     >
-      {/* Product Picker Modal */}
-      <Modal
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        title="Select products"
-        primaryAction={{
-          content: `Add ${selectedInPicker.length} product${selectedInPicker.length !== 1 ? "s" : ""}`,
-          onAction: handleConfirmPicker,
-        }}
-        secondaryActions={[{ content: "Cancel", onAction: () => setPickerOpen(false) }]}
-      >
-        <Modal.Section>
-          <TextField
-            label="Search products"
-            labelHidden
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search products..."
-            autoComplete="off"
-            clearButton
-            onClearButtonClick={() => setSearchQuery("")}
-          />
-        </Modal.Section>
-        <Modal.Section flush>
-          <div style={{ maxHeight: 400, overflowY: "auto" }}>
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                onClick={() => toggleProduct(product.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "12px 20px",
-                  cursor: "pointer",
-                  background: selectedInPicker.includes(product.id) ? "#f0f7f4" : "white",
-                  borderBottom: "1px solid #e5e5e5",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedInPicker.includes(product.id)}
-                  onChange={() => toggleProduct(product.id)}
-                  style={{ width: 18, height: 18, cursor: "pointer" }}
-                />
-                {product.image && (
-                  <img src={product.image} alt={product.title}
-                    style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e5e5" }} />
-                )}
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>{product.title}</p>
-                  <p style={{ margin: 0, color: "#666", fontSize: 13 }}>${product.price}</p>
-                </div>
-                {selectedInPicker.includes(product.id) && (
-                  <span style={{ color: "#008060", fontWeight: 600, fontSize: 13 }}>✓ Selected</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </Modal.Section>
-      </Modal>
+      <ProductPickerModal
+        open={bundlePickerOpen}
+        onClose={() => setBundlePickerOpen(false)}
+        onConfirm={handleConfirmBundlePicker}
+        selected={selectedInBundlePicker}
+        onToggle={toggleBundleProduct}
+        search={bundlePickerSearch}
+        onSearch={setBundlePickerSearch}
+        title="Select bundle products"
+        confirmLabel={`Add ${selectedInBundlePicker.length} product${selectedInBundlePicker.length !== 1 ? "s" : ""}`}
+      />
+
+      <ProductPickerModal
+        open={displayPickerOpen}
+        onClose={() => setDisplayPickerOpen(false)}
+        onConfirm={handleConfirmDisplayPicker}
+        selected={selectedInDisplayPicker}
+        onToggle={toggleDisplayProduct}
+        search={displayPickerSearch}
+        onSearch={setDisplayPickerSearch}
+        title="Select pages to show bundle on"
+        confirmLabel={`Select ${selectedInDisplayPicker.length} product${selectedInDisplayPicker.length !== 1 ? "s" : ""}`}
+      />
 
       <Layout>
         <Layout.Section>
@@ -233,11 +265,10 @@ export default function BundleFormPage() {
 
             <Card>
               <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">Apply bundle to</Text>
+                <Text as="h2" variant="headingMd">Bundle products</Text>
                 <Divider />
                 <ChoiceList
-                  title=""
-                  titleHidden
+                  title="Which products are in this bundle?"
                   choices={[
                     { label: "All products in store", value: "all" },
                     { label: "Specific products only", value: "specific" },
@@ -245,57 +276,76 @@ export default function BundleFormPage() {
                   selected={[applyToAll ? "all" : "specific"]}
                   onChange={(val) => setApplyToAll(val[0] === "all")}
                 />
+                {!applyToAll && (
+                  <BlockStack gap="300">
+                    {bundleProducts.length > 0 && (
+                      <ResourceList
+                        resourceName={{ singular: "product", plural: "products" }}
+                        items={bundleProducts}
+                        renderItem={(product) => (
+                          <ResourceItem
+                            id={product.id}
+                            media={<Thumbnail source={product.image || ""} alt={product.title} size="small" />}
+                            shortcutActions={[{ content: "Remove", destructive: true, onAction: () => setBundleProducts(prev => prev.filter(p => p.id !== product.id)) }]}
+                          >
+                            <Text fontWeight="bold" as="p">{product.title}</Text>
+                            <Text tone="subdued" as="p">${product.price}</Text>
+                          </ResourceItem>
+                        )}
+                      />
+                    )}
+                    <Button onClick={handleOpenBundlePicker}>
+                      {bundleProducts.length > 0 ? "Edit products" : "Browse and select products"}
+                    </Button>
+                    {bundleProducts.length === 0 && (
+                      <Banner tone="info">Select which products are included in this bundle.</Banner>
+                    )}
+                  </BlockStack>
+                )}
               </BlockStack>
             </Card>
 
-            {!applyToAll && (
-              <Card>
-                <BlockStack gap="400">
-                  <InlineStack align="space-between">
-                    <Text as="h2" variant="headingMd">Bundle products</Text>
-                    <Badge tone={bundleProducts.length >= 2 ? "success" : "attention"}>
-                      {bundleProducts.length} selected
-                    </Badge>
-                  </InlineStack>
-                  <Divider />
-
-                  {bundleProducts.length > 0 && (
-                    <ResourceList
-                      resourceName={{ singular: "product", plural: "products" }}
-                      items={bundleProducts}
-                      renderItem={(product) => (
-                        <ResourceItem
-                          id={product.id}
-                          media={
-                            <Thumbnail
-                              source={product.image || "https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"}
-                              alt={product.title}
-                              size="small"
-                            />
-                          }
-                          shortcutActions={[{
-                            content: "Remove",
-                            destructive: true,
-                            onAction: () => removeProduct(product.id),
-                          }]}
-                        >
-                          <Text fontWeight="bold" as="p">{product.title}</Text>
-                          <Text tone="subdued" as="p">${product.price}</Text>
-                        </ResourceItem>
-                      )}
-                    />
-                  )}
-
-                  <Button onClick={handleOpenPicker} variant="secondary">
-                    {bundleProducts.length > 0 ? "Edit selected products" : "Browse and select products"}
-                  </Button>
-
-                  {bundleProducts.length === 0 && (
-                    <Banner tone="info">Click "Browse and select products" to choose which products are in this bundle.</Banner>
-                  )}
-                </BlockStack>
-              </Card>
-            )}
+            <Card>
+              <BlockStack gap="400">
+                <Text as="h2" variant="headingMd">Show bundle on</Text>
+                <Divider />
+                <ChoiceList
+                  title="Which product pages should this bundle appear on?"
+                  choices={[
+                    { label: "All product pages", value: "all" },
+                    { label: "Specific product pages only", value: "specific" },
+                  ]}
+                  selected={[displayOnAll ? "all" : "specific"]}
+                  onChange={(val) => setDisplayOnAll(val[0] === "all")}
+                />
+                {!displayOnAll && (
+                  <BlockStack gap="300">
+                    {displayProducts.length > 0 && (
+                      <ResourceList
+                        resourceName={{ singular: "product", plural: "products" }}
+                        items={displayProducts}
+                        renderItem={(product) => (
+                          <ResourceItem
+                            id={product.id}
+                            media={<Thumbnail source={product.image || ""} alt={product.title} size="small" />}
+                            shortcutActions={[{ content: "Remove", destructive: true, onAction: () => setDisplayProducts(prev => prev.filter(p => p.id !== product.id)) }]}
+                          >
+                            <Text fontWeight="bold" as="p">{product.title}</Text>
+                            <Text tone="subdued" as="p">${product.price}</Text>
+                          </ResourceItem>
+                        )}
+                      />
+                    )}
+                    <Button onClick={handleOpenDisplayPicker}>
+                      {displayProducts.length > 0 ? "Edit display pages" : "Select product pages"}
+                    </Button>
+                    {displayProducts.length === 0 && (
+                      <Banner tone="info">Select which product pages this bundle widget will appear on.</Banner>
+                    )}
+                  </BlockStack>
+                )}
+              </BlockStack>
+            </Card>
 
             <Card>
               <BlockStack gap="400">
@@ -371,8 +421,12 @@ export default function BundleFormPage() {
                 <Text as="h2" variant="headingMd">Summary</Text>
                 <Divider />
                 <InlineStack align="space-between">
-                  <Text as="p" tone="subdued">Applies to</Text>
+                  <Text as="p" tone="subdued">Bundle products</Text>
                   <Text as="p" fontWeight="bold">{applyToAll ? "All products" : `${bundleProducts.length} products`}</Text>
+                </InlineStack>
+                <InlineStack align="space-between">
+                  <Text as="p" tone="subdued">Shows on</Text>
+                  <Text as="p" fontWeight="bold">{displayOnAll ? "All pages" : `${displayProducts.length} pages`}</Text>
                 </InlineStack>
                 <InlineStack align="space-between">
                   <Text as="p" tone="subdued">Discount</Text>
