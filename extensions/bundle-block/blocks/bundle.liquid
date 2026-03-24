@@ -6,15 +6,25 @@
     <h3 style="font-size:18px; font-weight:700; margin:8px 0 4px;">{{ block.settings.title }}</h3>
     <p style="font-size:14px; color:#666; margin:0;">{{ block.settings.subtitle }}</p>
   </div>
-  <div id="bundle-products-{{ block.id }}" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;"></div>
+
+  <div style="position:relative; margin-bottom:16px;">
+    <div id="bundle-products-{{ block.id }}" style="display:flex; gap:12px; overflow-x:auto; scroll-behavior:smooth; scrollbar-width:none; -ms-overflow-style:none; padding-bottom:4px;"></div>
+    <button id="bundle-prev-{{ block.id }}" style="display:none; position:absolute; left:-12px; top:50%; transform:translateY(-50%); background:#fff; border:1px solid #e5e5e5; border-radius:50%; width:28px; height:28px; cursor:pointer; font-size:16px; line-height:1; z-index:1;">‹</button>
+    <button id="bundle-next-{{ block.id }}" style="display:none; position:absolute; right:-12px; top:50%; transform:translateY(-50%); background:#fff; border:1px solid #e5e5e5; border-radius:50%; width:28px; height:28px; cursor:pointer; font-size:16px; line-height:1; z-index:1;">›</button>
+  </div>
+
   <div style="display:flex; align-items:center; gap:16px;">
-    <div id="bundle-savings-{{ block.id }}" style="font-size:15px; font-weight:600; color:#008060;"></div>
+    <div id="bundle-savings-{{ block.id }}" style="font-size:15px; font-weight:600; color:#008060; white-space:nowrap;"></div>
     <button id="bundle-btn-{{ block.id }}" type="button"
       style="flex:1; background:#000; color:#fff; border:none; border-radius:8px; padding:14px 20px; font-size:15px; font-weight:600; cursor:pointer;">
       {{ block.settings.button_text | default: 'Add Bundle to Cart' }}
     </button>
   </div>
 </div>
+
+<style>
+#bundle-products-{{ block.id }}::-webkit-scrollbar { display: none; }
+</style>
 
 <script>
 (function() {
@@ -32,16 +42,32 @@
       var productsEl = document.getElementById("bundle-products-" + blockId);
       var savingsEl = document.getElementById("bundle-savings-" + blockId);
       var btn = document.getElementById("bundle-btn-" + blockId);
+      var prevBtn = document.getElementById("bundle-prev-" + blockId);
+      var nextBtn = document.getElementById("bundle-next-" + blockId);
       var products = bundle.products || [];
 
+      // Build product cards
       productsEl.innerHTML = products.map(function(p, i) {
-        return (i > 0 ? '<span style="font-size:20px;color:#999;align-self:center;">+</span>' : '') +
-          '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:8px 12px;flex:1;min-width:140px;">' +
-          (p.image ? '<img src="' + p.image + '" style="width:40px;height:40px;object-fit:cover;border-radius:4px;" />' : '') +
-          '<div><p style="font-size:13px;font-weight:600;margin:0 0 2px;">' + p.title + '</p>' +
+        return (i > 0 ? '<span style="font-size:20px;color:#999;align-self:center;flex-shrink:0;">+</span>' : '') +
+          '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:8px 12px;min-width:160px;flex-shrink:0;">' +
+          (p.image ? '<img src="' + p.image + '" style="width:44px;height:44px;object-fit:cover;border-radius:4px;flex-shrink:0;" />' : '') +
+          '<div><p style="font-size:13px;font-weight:600;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">' + p.title + '</p>' +
           '<p style="font-size:12px;color:#666;margin:0;">$' + p.price + '</p></div></div>';
       }).join('');
 
+      // Show carousel arrows if more than 2 products
+      if (products.length > 2) {
+        prevBtn.style.display = "block";
+        nextBtn.style.display = "block";
+        prevBtn.addEventListener("click", function() {
+          productsEl.scrollBy({ left: -200, behavior: "smooth" });
+        });
+        nextBtn.addEventListener("click", function() {
+          productsEl.scrollBy({ left: 200, behavior: "smooth" });
+        });
+      }
+
+      // Calculate savings
       var total = products.reduce(function(s, p) { return s + parseFloat(p.price || 0); }, 0);
       var disc = bundle.discountValue || 0;
       var dtype = bundle.discountType || "PERCENTAGE";
