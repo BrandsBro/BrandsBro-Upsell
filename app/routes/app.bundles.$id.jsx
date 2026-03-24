@@ -3,7 +3,7 @@ import { useLoaderData, useNavigate, useFetcher } from "react-router";
 import {
   Page, Layout, Card, Text, Button, BlockStack, InlineStack,
   TextField, Select, Checkbox, Banner, Divider, Badge,
-  Thumbnail, ChoiceList, Modal, ResourceList, ResourceItem,
+  Thumbnail, Modal, ResourceList, ResourceItem,
 } from "@shopify/polaris";
 import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server";
@@ -64,8 +64,8 @@ export const action = async ({ request, params }) => {
     displayProducts: JSON.parse(String(formData.get("displayProducts") || "[]")),
     showOnProduct: formData.get("showOnProduct") === "true",
     showOnCart: formData.get("showOnCart") === "true",
-    applyToAll: formData.get("applyToAll") === "true",
-    displayOnAll: formData.get("displayOnAll") === "true",
+    applyToAll: false,
+    displayOnAll: false,
   };
 
   if (params.id && params.id !== "new") {
@@ -77,85 +77,8 @@ export const action = async ({ request, params }) => {
   return redirect("/app/bundles");
 };
 
-export default function BundleFormPage() {
-  const { bundle, allProducts } = useLoaderData();
-  const navigate = useNavigate();
-  const fetcher = useFetcher();
-
-  const [name, setName] = useState(bundle?.name ?? "");
-  const [status, setStatus] = useState(bundle?.status ?? "DRAFT");
-  const [discountType, setDiscountType] = useState(bundle?.discountType ?? "PERCENTAGE");
-  const [discountValue, setDiscountValue] = useState(String(bundle?.discountValue ?? "10"));
-  const [showOnProduct, setShowOnProduct] = useState(bundle?.showOnProduct ?? true);
-  const [showOnCart, setShowOnCart] = useState(bundle?.showOnCart ?? true);
-  const [applyToAll, setApplyToAll] = useState(bundle?.applyToAll ?? false);
-  const [displayOnAll, setDisplayOnAll] = useState(bundle?.displayOnAll ?? true);
-  const [bundleProducts, setBundleProducts] = useState(bundle?.products ?? []);
-  const [displayProducts, setDisplayProducts] = useState(bundle?.displayProducts ?? []);
-
-  // Bundle products picker
-  const [bundlePickerOpen, setBundlePickerOpen] = useState(false);
-  const [bundlePickerSearch, setBundlePickerSearch] = useState("");
-  const [selectedInBundlePicker, setSelectedInBundlePicker] = useState([]);
-
-  // Display products picker
-  const [displayPickerOpen, setDisplayPickerOpen] = useState(false);
-  const [displayPickerSearch, setDisplayPickerSearch] = useState("");
-  const [selectedInDisplayPicker, setSelectedInDisplayPicker] = useState([]);
-
-  const isSaving = fetcher.state === "submitting";
-
-  // Bundle products picker handlers
-  const handleOpenBundlePicker = useCallback(() => {
-    setSelectedInBundlePicker(bundleProducts.map(p => p.id));
-    setBundlePickerOpen(true);
-    setBundlePickerSearch("");
-  }, [bundleProducts]);
-
-  const handleConfirmBundlePicker = useCallback(() => {
-    setBundleProducts(allProducts.filter(p => selectedInBundlePicker.includes(p.id)));
-    setBundlePickerOpen(false);
-  }, [selectedInBundlePicker, allProducts]);
-
-  // Display products picker handlers
-  const handleOpenDisplayPicker = useCallback(() => {
-    setSelectedInDisplayPicker(displayProducts.map(p => p.id));
-    setDisplayPickerOpen(true);
-    setDisplayPickerSearch("");
-  }, [displayProducts]);
-
-  const handleConfirmDisplayPicker = useCallback(() => {
-    setDisplayProducts(allProducts.filter(p => selectedInDisplayPicker.includes(p.id)));
-    setDisplayPickerOpen(false);
-  }, [selectedInDisplayPicker, allProducts]);
-
-  const toggleBundleProduct = useCallback((id) => {
-    setSelectedInBundlePicker(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  }, []);
-
-  const toggleDisplayProduct = useCallback((id) => {
-    setSelectedInDisplayPicker(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  }, []);
-
-  const handleSave = useCallback((saveStatus) => {
-    fetcher.submit(
-      {
-        name,
-        status: saveStatus,
-        discountType,
-        discountValue,
-        products: JSON.stringify(bundleProducts),
-        displayProducts: JSON.stringify(displayProducts),
-        showOnProduct: String(showOnProduct),
-        showOnCart: String(showOnCart),
-        applyToAll: String(applyToAll),
-        displayOnAll: String(displayOnAll),
-      },
-      { method: "post" }
-    );
-  }, [name, discountType, discountValue, bundleProducts, displayProducts, showOnProduct, showOnCart, applyToAll, displayOnAll, fetcher]);
-
-  const ProductPickerModal = ({ open, onClose, onConfirm, selected, onToggle, search, onSearch, title, confirmLabel }) => (
+function ProductPickerModal({ open, onClose, onConfirm, selected, onToggle, search, onSearch, title, confirmLabel, allProducts }) {
+  return (
     <Modal
       open={open}
       onClose={onClose}
@@ -189,9 +112,12 @@ export default function BundleFormPage() {
                   borderBottom: "1px solid #e5e5e5",
                 }}
               >
-                <input type="checkbox" checked={selected.includes(product.id)}
+                <input
+                  type="checkbox"
+                  checked={selected.includes(product.id)}
                   onChange={() => onToggle(product.id)}
-                  style={{ width: 18, height: 18, cursor: "pointer" }} />
+                  style={{ width: 18, height: 18, cursor: "pointer" }}
+                />
                 {product.image && (
                   <img src={product.image} alt={product.title}
                     style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e5e5" }} />
@@ -209,6 +135,77 @@ export default function BundleFormPage() {
       </Modal.Section>
     </Modal>
   );
+}
+
+export default function BundleFormPage() {
+  const { bundle, allProducts } = useLoaderData();
+  const navigate = useNavigate();
+  const fetcher = useFetcher();
+
+  const [name, setName] = useState(bundle?.name ?? "");
+  const [status, setStatus] = useState(bundle?.status ?? "DRAFT");
+  const [discountType, setDiscountType] = useState(bundle?.discountType ?? "PERCENTAGE");
+  const [discountValue, setDiscountValue] = useState(String(bundle?.discountValue ?? "10"));
+  const [showOnProduct, setShowOnProduct] = useState(bundle?.showOnProduct ?? true);
+  const [showOnCart, setShowOnCart] = useState(bundle?.showOnCart ?? true);
+  const [bundleProducts, setBundleProducts] = useState(bundle?.products ?? []);
+  const [displayProducts, setDisplayProducts] = useState(bundle?.displayProducts ?? []);
+
+  const [bundlePickerOpen, setBundlePickerOpen] = useState(false);
+  const [bundlePickerSearch, setBundlePickerSearch] = useState("");
+  const [selectedInBundlePicker, setSelectedInBundlePicker] = useState([]);
+
+  const [displayPickerOpen, setDisplayPickerOpen] = useState(false);
+  const [displayPickerSearch, setDisplayPickerSearch] = useState("");
+  const [selectedInDisplayPicker, setSelectedInDisplayPicker] = useState([]);
+
+  const isSaving = fetcher.state === "submitting";
+
+  const handleOpenBundlePicker = useCallback(() => {
+    setSelectedInBundlePicker(bundleProducts.map(p => p.id));
+    setBundlePickerOpen(true);
+    setBundlePickerSearch("");
+  }, [bundleProducts]);
+
+  const handleConfirmBundlePicker = useCallback(() => {
+    setBundleProducts(allProducts.filter(p => selectedInBundlePicker.includes(p.id)));
+    setBundlePickerOpen(false);
+  }, [selectedInBundlePicker, allProducts]);
+
+  const handleOpenDisplayPicker = useCallback(() => {
+    setSelectedInDisplayPicker(displayProducts.map(p => p.id));
+    setDisplayPickerOpen(true);
+    setDisplayPickerSearch("");
+  }, [displayProducts]);
+
+  const handleConfirmDisplayPicker = useCallback(() => {
+    setDisplayProducts(allProducts.filter(p => selectedInDisplayPicker.includes(p.id)));
+    setDisplayPickerOpen(false);
+  }, [selectedInDisplayPicker, allProducts]);
+
+  const toggleBundleProduct = useCallback((id) => {
+    setSelectedInBundlePicker(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  }, []);
+
+  const toggleDisplayProduct = useCallback((id) => {
+    setSelectedInDisplayPicker(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  }, []);
+
+  const handleSave = useCallback((saveStatus) => {
+    fetcher.submit(
+      {
+        name,
+        status: saveStatus,
+        discountType,
+        discountValue,
+        products: JSON.stringify(bundleProducts),
+        displayProducts: JSON.stringify(displayProducts),
+        showOnProduct: String(showOnProduct),
+        showOnCart: String(showOnCart),
+      },
+      { method: "post" }
+    );
+  }, [name, discountType, discountValue, bundleProducts, displayProducts, showOnProduct, showOnCart, fetcher]);
 
   return (
     <Page
@@ -230,7 +227,8 @@ export default function BundleFormPage() {
         search={bundlePickerSearch}
         onSearch={setBundlePickerSearch}
         title="Select bundle products"
-        confirmLabel={`Add ${selectedInBundlePicker.length} product${selectedInBundlePicker.length !== 1 ? "s" : ""}`}
+        confirmLabel={`Confirm ${selectedInBundlePicker.length} product${selectedInBundlePicker.length !== 1 ? "s" : ""}`}
+        allProducts={allProducts}
       />
 
       <ProductPickerModal
@@ -241,8 +239,9 @@ export default function BundleFormPage() {
         onToggle={toggleDisplayProduct}
         search={displayPickerSearch}
         onSearch={setDisplayPickerSearch}
-        title="Select pages to show bundle on"
-        confirmLabel={`Select ${selectedInDisplayPicker.length} product${selectedInDisplayPicker.length !== 1 ? "s" : ""}`}
+        title="Select trigger product pages"
+        confirmLabel={`Confirm ${selectedInDisplayPicker.length} product${selectedInDisplayPicker.length !== 1 ? "s" : ""}`}
+        allProducts={allProducts}
       />
 
       <Layout>
@@ -266,41 +265,37 @@ export default function BundleFormPage() {
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">Bundle products</Text>
+                <Text as="p" tone="subdued" variant="bodySm">
+                  Select the products that make up this bundle. Customers will get a discount when they add all of these together.
+                </Text>
                 <Divider />
-                <ChoiceList
-                  title="Which products are in this bundle?"
-                  choices={[
-                    { label: "All products in store", value: "all" },
-                    { label: "Specific products only", value: "specific" },
-                  ]}
-                  selected={[applyToAll ? "all" : "specific"]}
-                  onChange={(val) => setApplyToAll(val[0] === "all")}
-                />
-                {!applyToAll && (
-                  <BlockStack gap="300">
-                    {bundleProducts.length > 0 && (
-                      <ResourceList
-                        resourceName={{ singular: "product", plural: "products" }}
-                        items={bundleProducts}
-                        renderItem={(product) => (
-                          <ResourceItem
-                            id={product.id}
-                            media={<Thumbnail source={product.image || ""} alt={product.title} size="small" />}
-                            shortcutActions={[{ content: "Remove", destructive: true, onAction: () => setBundleProducts(prev => prev.filter(p => p.id !== product.id)) }]}
-                          >
-                            <Text fontWeight="bold" as="p">{product.title}</Text>
-                            <Text tone="subdued" as="p">${product.price}</Text>
-                          </ResourceItem>
-                        )}
-                      />
+                {bundleProducts.length > 0 && (
+                  <ResourceList
+                    resourceName={{ singular: "product", plural: "products" }}
+                    items={bundleProducts}
+                    renderItem={(product) => (
+                      <ResourceItem
+                        id={product.id}
+                        media={<Thumbnail source={product.image || ""} alt={product.title} size="small" />}
+                        shortcutActions={[{
+                          content: "Remove", destructive: true,
+                          onAction: () => setBundleProducts(prev => prev.filter(p => p.id !== product.id))
+                        }]}
+                      >
+                        <Text fontWeight="bold" as="p">{product.title}</Text>
+                        <Text tone="subdued" as="p">${product.price}</Text>
+                      </ResourceItem>
                     )}
-                    <Button onClick={handleOpenBundlePicker}>
-                      {bundleProducts.length > 0 ? "Edit products" : "Browse and select products"}
-                    </Button>
-                    {bundleProducts.length === 0 && (
-                      <Banner tone="info">Select which products are included in this bundle.</Banner>
-                    )}
-                  </BlockStack>
+                  />
+                )}
+                <Button onClick={handleOpenBundlePicker}>
+                  {bundleProducts.length > 0 ? "Edit bundle products" : "Select bundle products"}
+                </Button>
+                {bundleProducts.length === 0 && (
+                  <Banner tone="info">Select 2 or more products that will be offered together as a bundle.</Banner>
+                )}
+                {bundleProducts.length === 1 && (
+                  <Banner tone="warning">Add at least one more product to create a bundle.</Banner>
                 )}
               </BlockStack>
             </Card>
@@ -308,41 +303,34 @@ export default function BundleFormPage() {
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">Show bundle on</Text>
+                <Text as="p" tone="subdued" variant="bodySm">
+                  Select which product page(s) will trigger this bundle widget to appear.
+                </Text>
                 <Divider />
-                <ChoiceList
-                  title="Which product pages should this bundle appear on?"
-                  choices={[
-                    { label: "All product pages", value: "all" },
-                    { label: "Specific product pages only", value: "specific" },
-                  ]}
-                  selected={[displayOnAll ? "all" : "specific"]}
-                  onChange={(val) => setDisplayOnAll(val[0] === "all")}
-                />
-                {!displayOnAll && (
-                  <BlockStack gap="300">
-                    {displayProducts.length > 0 && (
-                      <ResourceList
-                        resourceName={{ singular: "product", plural: "products" }}
-                        items={displayProducts}
-                        renderItem={(product) => (
-                          <ResourceItem
-                            id={product.id}
-                            media={<Thumbnail source={product.image || ""} alt={product.title} size="small" />}
-                            shortcutActions={[{ content: "Remove", destructive: true, onAction: () => setDisplayProducts(prev => prev.filter(p => p.id !== product.id)) }]}
-                          >
-                            <Text fontWeight="bold" as="p">{product.title}</Text>
-                            <Text tone="subdued" as="p">${product.price}</Text>
-                          </ResourceItem>
-                        )}
-                      />
+                {displayProducts.length > 0 && (
+                  <ResourceList
+                    resourceName={{ singular: "product", plural: "products" }}
+                    items={displayProducts}
+                    renderItem={(product) => (
+                      <ResourceItem
+                        id={product.id}
+                        media={<Thumbnail source={product.image || ""} alt={product.title} size="small" />}
+                        shortcutActions={[{
+                          content: "Remove", destructive: true,
+                          onAction: () => setDisplayProducts(prev => prev.filter(p => p.id !== product.id))
+                        }]}
+                      >
+                        <Text fontWeight="bold" as="p">{product.title}</Text>
+                        <Text tone="subdued" as="p">${product.price}</Text>
+                      </ResourceItem>
                     )}
-                    <Button onClick={handleOpenDisplayPicker}>
-                      {displayProducts.length > 0 ? "Edit display pages" : "Select product pages"}
-                    </Button>
-                    {displayProducts.length === 0 && (
-                      <Banner tone="info">Select which product pages this bundle widget will appear on.</Banner>
-                    )}
-                  </BlockStack>
+                  />
+                )}
+                <Button onClick={handleOpenDisplayPicker}>
+                  {displayProducts.length > 0 ? "Edit trigger products" : "Select trigger products"}
+                </Button>
+                {displayProducts.length === 0 && (
+                  <Banner tone="info">Select which product pages this bundle widget will appear on.</Banner>
                 )}
               </BlockStack>
             </Card>
@@ -422,21 +410,22 @@ export default function BundleFormPage() {
                 <Divider />
                 <InlineStack align="space-between">
                   <Text as="p" tone="subdued">Bundle products</Text>
-                  <Text as="p" fontWeight="bold">{applyToAll ? "All products" : `${bundleProducts.length} products`}</Text>
+                  <Text as="p" fontWeight="bold">{bundleProducts.length} products</Text>
                 </InlineStack>
                 <InlineStack align="space-between">
                   <Text as="p" tone="subdued">Shows on</Text>
-                  <Text as="p" fontWeight="bold">{displayOnAll ? "All pages" : `${displayProducts.length} pages`}</Text>
+                  <Text as="p" fontWeight="bold">{displayProducts.length} product page{displayProducts.length !== 1 ? "s" : ""}</Text>
                 </InlineStack>
                 <InlineStack align="space-between">
                   <Text as="p" tone="subdued">Discount</Text>
                   <Text as="p" fontWeight="bold">{discountValue}{discountType === "PERCENTAGE" ? "%" : "$"} off</Text>
                 </InlineStack>
-                {(applyToAll || bundleProducts.length >= 2) && (
+                {bundleProducts.length >= 2 && displayProducts.length >= 1 && (
                   <Banner tone="success">Ready to save!</Banner>
                 )}
               </BlockStack>
             </Card>
+
           </BlockStack>
         </Layout.Section>
       </Layout>
