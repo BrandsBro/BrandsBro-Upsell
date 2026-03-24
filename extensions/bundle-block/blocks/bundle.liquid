@@ -84,9 +84,9 @@
           btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
 
-          // Trigger native add to cart button to open drawer
-          var addBtn = document.querySelector("[name='add']");
-          if (addBtn) addBtn.click();
+          
+          
+          
 
           setTimeout(function() {
             btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
