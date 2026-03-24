@@ -9,6 +9,8 @@ import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server";
 import { prisma } from "../lib/prisma.server";
 
+const FUNCTION_ID = "9af3f994-bd51-6887-fcd6-54cf5d37c00cecfbebbd";
+
 export const loader = async ({ request, params }) => {
   const { session, admin } = await authenticate.admin(request);
 
@@ -37,34 +39,7 @@ export const loader = async ({ request, params }) => {
     price: e.node.variants.edges[0]?.node.price ?? "0",
   }));
 
-  // Create automatic discount function if not exists
-  if (status === "ACTIVE") {
-    const functionId = "9af3f994-bd51-6887-fcd6-54cf5d37c00cecfbebbd";
-    const existing = await prisma.shop.findUnique({ where: { shopDomain: session.shop } });
-    if (!existing?.discountId) {
-      const discountResult = await admin.graphql(`
-        mutation {
-          discountAutomaticAppCreate(automaticAppDiscount: {
-            title: "BrandsBro Bundle Discount"
-            functionId: "${functionId}"
-            startsAt: "${new Date().toISOString()}"
-          }) {
-            automaticAppDiscount {
-              discountId
-            }
-            userErrors { field message }
-          }
-        }
-      `);
-      const discountData = await discountResult.json();
-      const discountId = discountData?.data?.discountAutomaticAppCreate?.automaticAppDiscount?.discountId;
-      if (discountId) {
-        await prisma.shop.update({ where: { shopDomain: session.shop }, data: { discountId } });
-      }
-    }
-  }
-
-  if (params.id   if (params.id && params.id !== "new") {  if (params.id && params.id !== "new") { params.id !== "new") {
+  if (params.id && params.id !== "new") {
     const shop = await prisma.shop.findUnique({ where: { shopDomain: session.shop } });
     const bundle = await prisma.bundle.findFirst({
       where: { id: params.id, shopId: shop?.id },
@@ -76,15 +51,16 @@ export const loader = async ({ request, params }) => {
 };
 
 export const action = async ({ request, params }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = await prisma.shop.findUnique({ where: { shopDomain: session.shop } });
   if (!shop) throw new Error("Shop not found");
 
   const formData = await request.formData();
+  const status = String(formData.get("status"));
 
   const data = {
     name: String(formData.get("name")),
-    status: String(formData.get("status")),
+    status,
     discountType: String(formData.get("discountType")),
     discountValue: parseFloat(String(formData.get("discountValue"))) || 0,
     products: JSON.parse(String(formData.get("products") || "[]")),
@@ -95,16 +71,14 @@ export const action = async ({ request, params }) => {
     displayOnAll: false,
   };
 
-  // Create automatic discount function if not exists
-  if (status === "ACTIVE") {
-    const functionId = "9af3f994-bd51-6887-fcd6-54cf5d37c00cecfbebbd";
-    const existing = await prisma.shop.findUnique({ where: { shopDomain: session.shop } });
-    if (!existing?.discountId) {
+  // Create automatic discount function once per shop
+  if (status === "ACTIVE" && !shop.discountId) {
+    try {
       const discountResult = await admin.graphql(`
         mutation {
           discountAutomaticAppCreate(automaticAppDiscount: {
             title: "BrandsBro Bundle Discount"
-            functionId: "${functionId}"
+            functionId: "${FUNCTION_ID}"
             startsAt: "${new Date().toISOString()}"
           }) {
             automaticAppDiscount {
@@ -119,10 +93,12 @@ export const action = async ({ request, params }) => {
       if (discountId) {
         await prisma.shop.update({ where: { shopDomain: session.shop }, data: { discountId } });
       }
+    } catch (e) {
+      console.error("Discount creation error:", e);
     }
   }
 
-  if (params.id   if (params.id && params.id !== "new") {  if (params.id && params.id !== "new") { params.id !== "new") {
+  if (params.id && params.id !== "new") {
     await prisma.bundle.update({ where: { id: params.id }, data });
   } else {
     await prisma.bundle.create({ data: { ...data, shopId: shop.id } });
@@ -166,12 +142,9 @@ function ProductPickerModal({ open, onClose, onConfirm, selected, onToggle, sear
                   borderBottom: "1px solid #e5e5e5",
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={selected.includes(product.id)}
+                <input type="checkbox" checked={selected.includes(product.id)}
                   onChange={() => onToggle(product.id)}
-                  style={{ width: 18, height: 18, cursor: "pointer" }}
-                />
+                  style={{ width: 18, height: 18, cursor: "pointer" }} />
                 {product.image && (
                   <img src={product.image} alt={product.title}
                     style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 6, border: "1px solid #e5e5e5" }} />
@@ -320,7 +293,7 @@ export default function BundleFormPage() {
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">Bundle products</Text>
                 <Text as="p" tone="subdued" variant="bodySm">
-                  Select the products that make up this bundle. Customers will get a discount when they add all of these together.
+                  Select the products that make up this bundle.
                 </Text>
                 <Divider />
                 {bundleProducts.length > 0 && (
@@ -346,10 +319,7 @@ export default function BundleFormPage() {
                   {bundleProducts.length > 0 ? "Edit bundle products" : "Select bundle products"}
                 </Button>
                 {bundleProducts.length === 0 && (
-                  <Banner tone="info">Select 2 or more products that will be offered together as a bundle.</Banner>
-                )}
-                {bundleProducts.length === 1 && (
-                  <Banner tone="warning">Add at least one more product to create a bundle.</Banner>
+                  <Banner tone="info">Select 2 or more products for this bundle.</Banner>
                 )}
               </BlockStack>
             </Card>
@@ -358,7 +328,7 @@ export default function BundleFormPage() {
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">Show bundle on</Text>
                 <Text as="p" tone="subdued" variant="bodySm">
-                  Select which product page(s) will trigger this bundle widget to appear.
+                  Select which product page(s) will trigger this bundle widget.
                 </Text>
                 <Divider />
                 {displayProducts.length > 0 && (
@@ -384,7 +354,7 @@ export default function BundleFormPage() {
                   {displayProducts.length > 0 ? "Edit trigger products" : "Select trigger products"}
                 </Button>
                 {displayProducts.length === 0 && (
-                  <Banner tone="info">Select which product pages this bundle widget will appear on.</Banner>
+                  <Banner tone="info">Select which product pages show this bundle widget.</Banner>
                 )}
               </BlockStack>
             </Card>
@@ -468,7 +438,7 @@ export default function BundleFormPage() {
                 </InlineStack>
                 <InlineStack align="space-between">
                   <Text as="p" tone="subdued">Shows on</Text>
-                  <Text as="p" fontWeight="bold">{displayProducts.length} product page{displayProducts.length !== 1 ? "s" : ""}</Text>
+                  <Text as="p" fontWeight="bold">{displayProducts.length} pages</Text>
                 </InlineStack>
                 <InlineStack align="space-between">
                   <Text as="p" tone="subdued">Discount</Text>
@@ -479,7 +449,6 @@ export default function BundleFormPage() {
                 )}
               </BlockStack>
             </Card>
-
           </BlockStack>
         </Layout.Section>
       </Layout>
