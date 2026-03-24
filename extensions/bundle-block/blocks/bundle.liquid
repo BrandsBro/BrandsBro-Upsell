@@ -59,52 +59,57 @@
         var items = products.map(function(p) {
           return { id: p.variantId.split("/").pop(), quantity: 1 };
         });
+
+        // Add items to cart first
         fetch("/cart/add.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: items, sections: "cart-drawer,cart-icon-bubble", sections_url: window.location.pathname })
+          body: JSON.stringify({ items: items })
         })
         .then(function(r) { return r.json(); })
-        .then(function(response) {
-          btn.textContent = "✓ Added to cart!";
+        .then(function() {
+          btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
 
-          // Update sections if returned
-          if (response.sections) {
-            Object.keys(response.sections).forEach(function(key) {
+          // Now fetch updated cart sections
+          fetch("/?sections=cart-drawer,cart-icon-bubble")
+            .then(function(r) { return r.json(); })
+            .then(function(sections) {
               var parser = new DOMParser();
-              var doc = parser.parseFromString(response.sections[key], "text/html");
 
-              if (key === "cart-drawer") {
-                var newDrawer = doc.querySelector("cart-drawer");
-                var oldDrawer = document.querySelector("cart-drawer");
-                if (oldDrawer && newDrawer) {
-                  oldDrawer.innerHTML = newDrawer.innerHTML;
-                  if (typeof oldDrawer.open === "function") oldDrawer.open();
-                  oldDrawer.removeAttribute("inert");
-                  oldDrawer.setAttribute("open", "");
-                }
-              }
-
-              if (key === "cart-icon-bubble") {
+              // Update cart icon bubble
+              if (sections["cart-icon-bubble"]) {
+                var doc = parser.parseFromString(sections["cart-icon-bubble"], "text/html");
                 var newBubble = doc.querySelector(".cart-count-bubble");
                 var oldBubble = document.querySelector(".cart-count-bubble");
-                if (oldBubble && newBubble) oldBubble.innerHTML = newBubble.innerHTML;
+                if (oldBubble && newBubble) oldBubble.outerHTML = newBubble.outerHTML;
+              }
+
+              // Update and open cart drawer
+              if (sections["cart-drawer"]) {
+                var doc2 = parser.parseFromString(sections["cart-drawer"], "text/html");
+                var newDrawer = doc2.querySelector("cart-drawer");
+                var oldDrawer = document.querySelector("cart-drawer");
+                if (oldDrawer && newDrawer) {
+                  oldDrawer.outerHTML = newDrawer.outerHTML;
+                  // Re-query after outerHTML replacement
+                  var drawer = document.querySelector("cart-drawer");
+                  if (drawer) {
+                    drawer.removeAttribute("inert");
+                    drawer.open = true;
+                    // Trigger Dawn's open method
+                    var overlay = document.getElementById("CartDrawer-Overlay");
+                    if (overlay) overlay.click();
+                    // Try clicking the cart button to open
+                    setTimeout(function() {
+                      var cartBtn = document.querySelector("[href='/cart'], .cart-link, #cart-icon-bubble");
+                      if (cartBtn) cartBtn.click();
+                    }, 100);
+                  }
+                }
               }
             });
-          }
 
-          // Fallback - dispatch events for any theme
-          document.dispatchEvent(new CustomEvent("cart:refresh", { bubbles: true }));
-          window.dispatchEvent(new CustomEvent("cart:refresh", { bubbles: true }));
-
-          // Dawn theme specific
-          var cartDrawer = document.querySelector("cart-drawer");
-          if (cartDrawer) {
-            cartDrawer.dispatchEvent(new CustomEvent("cart:open", { bubbles: true }));
-          }
-
-          // Reset button after 3 seconds
           setTimeout(function() {
             btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
             btn.style.background = "#000";
