@@ -6,7 +6,6 @@ import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import "@shopify/polaris/build/esm/styles.css";
 import { authenticate } from "../shopify.server";
-import { useRef } from "react";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -29,13 +28,14 @@ export const loader = async ({ request }) => {
 
 export default function App() {
   const { apiKey, host, shop } = useLoaderData();
-  const hostRef = useRef(host);
 
-  // Keep the host value once we have it - never reset to empty
-  if (host) hostRef.current = host;
+  if (typeof window !== "undefined") {
+    if (host) window.__shopify_host = host;
+  }
+  const finalHost = host || (typeof window !== "undefined" ? window.__shopify_host || "" : "");
 
   return (
-    <ShopifyAppProvider embedded apiKey={apiKey} host={hostRef.current} shop={shop}>
+    <ShopifyAppProvider embedded apiKey={apiKey} host={finalHost} shop={shop}>
       <PolarisAppProvider i18n={enTranslations}>
         <ui-nav-menu>
           <a href="/app" rel="home">Home</a>
