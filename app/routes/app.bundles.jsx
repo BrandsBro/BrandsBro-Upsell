@@ -1,6 +1,6 @@
-import { useLoaderData, useNavigate, Outlet } from "react-router";
+import { useLoaderData, useNavigate, Outlet, useMatches } from "react-router";
 import {
-  Page, Layout, Card, Text, BlockStack, Badge,
+  Page, Layout, Card, Text, Badge,
   IndexTable, EmptyState, useIndexResourceState,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
@@ -20,6 +20,10 @@ export const loader = async ({ request }) => {
 export default function BundlesPage() {
   const { bundles } = useLoaderData();
   const navigate = useNavigate();
+  const matches = useMatches();
+  const isChildRoute = matches.some(m => m.id === "routes/app.bundles.$id");
+
+  if (isChildRoute) return <Outlet />;
 
   const { selectedResources, allResourcesSelected, handleSelectionChange } =
     useIndexResourceState(bundles);
@@ -51,42 +55,39 @@ export default function BundlesPage() {
   });
 
   return (
-    <>
-      <Outlet />
-      <Page
-        title="Bundles"
-        primaryAction={{ content: "Create bundle", onAction: () => navigate("/app/bundles/new") }}
-        backAction={{ content: "Dashboard", onAction: () => navigate("/app") }}
-      >
-        <Layout>
-          <Layout.Section>
-            <Card padding="0">
-              {bundles.length === 0 ? (
-                <EmptyState
-                  heading="Create your first product bundle"
-                  action={{ content: "Create bundle", onAction: () => navigate("/app/bundles/new") }}
-                  image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                >
-                  <p>Bundles combine multiple products at a discount and show on product and cart pages.</p>
-                </EmptyState>
-              ) : (
-                <IndexTable
-                  resourceName={{ singular: "bundle", plural: "bundles" }}
-                  itemCount={bundles.length}
-                  selectedItemsCount={allResourcesSelected ? "All" : selectedResources.length}
-                  onSelectionChange={handleSelectionChange}
-                  headings={[
-                    { title: "Name" }, { title: "Status" }, { title: "Products" },
-                    { title: "Discount" }, { title: "Product page" }, { title: "Cart page" }, { title: "Created" },
-                  ]}
-                >
-                  {rowMarkup}
-                </IndexTable>
-              )}
-            </Card>
-          </Layout.Section>
-        </Layout>
-      </Page>
-    </>
+    <Page
+      title="Bundles"
+      primaryAction={{ content: "Create bundle", onAction: () => navigate("/app/bundles/new") }}
+      backAction={{ content: "Dashboard", onAction: () => navigate("/app") }}
+    >
+      <Layout>
+        <Layout.Section>
+          <Card padding="0">
+            {bundles.length === 0 ? (
+              <EmptyState
+                heading="Create your first product bundle"
+                action={{ content: "Create bundle", onAction: () => navigate("/app/bundles/new") }}
+                image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+              >
+                <p>Bundles combine multiple products at a discount and show on product and cart pages.</p>
+              </EmptyState>
+            ) : (
+              <IndexTable
+                resourceName={{ singular: "bundle", plural: "bundles" }}
+                itemCount={bundles.length}
+                selectedItemsCount={allResourcesSelected ? "All" : selectedResources.length}
+                onSelectionChange={handleSelectionChange}
+                headings={[
+                  { title: "Name" }, { title: "Status" }, { title: "Products" },
+                  { title: "Discount" }, { title: "Product page" }, { title: "Cart page" }, { title: "Created" },
+                ]}
+              >
+                {rowMarkup}
+              </IndexTable>
+            )}
+          </Card>
+        </Layout.Section>
+      </Layout>
+    </Page>
   );
 }
