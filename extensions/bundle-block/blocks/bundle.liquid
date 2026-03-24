@@ -57,66 +57,16 @@
           return { id: p.variantId.split("/").pop(), quantity: 1 };
         });
 
-        // Get all section IDs on the page that contain cart
-        var sectionIds = [];
-        document.querySelectorAll("[id]").forEach(function(el) {
-          if (el.id && (
-            el.id.includes("cart") ||
-            el.id.includes("Cart") ||
-            el.tagName.toLowerCase() === "cart-drawer" ||
-            el.tagName.toLowerCase() === "cart-notification"
-          )) {
-            var sectionEl = el.closest("[data-section-id]");
-            if (sectionEl) sectionIds.push(sectionEl.dataset.sectionId);
-          }
-        });
-
-        // Always include these common section IDs
-        sectionIds = sectionIds.concat(["cart-drawer", "cart-icon-bubble", "cart-notification-product", "cart-notification-button"]);
-        sectionIds = [...new Set(sectionIds)];
-
         fetch("/cart/add.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            items: items,
-            sections: sectionIds.join(","),
-            sections_url: window.location.pathname
-          })
+          body: JSON.stringify({ items: items })
         })
         .then(function(r) { return r.json(); })
-        .then(function(response) {
+        .then(function() {
           btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
-
-          // Update all returned sections in DOM
-          if (response.sections) {
-            var parser = new DOMParser();
-            Object.keys(response.sections).forEach(function(sectionId) {
-              var html = response.sections[sectionId];
-              var doc = parser.parseFromString(html, "text/html");
-
-              // Find matching element on page and replace
-              var sourceEl = doc.querySelector("[data-section-id='" + sectionId + "']") || doc.body.firstElementChild;
-              var targetEl = document.querySelector("[data-section-id='" + sectionId + "']") ||
-                             document.querySelector("cart-drawer") ||
-                             document.querySelector("#cart-notification");
-
-              if (sourceEl && targetEl) {
-                targetEl.innerHTML = sourceEl.innerHTML;
-                // Open if it has an open method
-                if (typeof targetEl.open === "function") targetEl.open();
-                targetEl.removeAttribute("inert");
-                targetEl.setAttribute("open", "");
-              }
-            });
-          }
-
-          setTimeout(function() {
-            btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
-            btn.style.background = "#000";
-            btn.disabled = false;
-          }, 3000);
+          window.location.href = "/cart";
         })
         .catch(function(err) {
           console.error("Cart error:", err);
