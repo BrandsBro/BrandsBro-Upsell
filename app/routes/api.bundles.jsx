@@ -26,9 +26,10 @@ export const loader = async ({ request }) => {
     ? productId
     : `gid://shopify/Product/${productId}`;
 
+  // Match bundle where current product is in displayProducts (trigger pages)
   const matched = bundles.find((b) => {
-    const products = b.products ?? [];
-    return products.some((p) => p.id === normalizedProductId);
+    const displayProducts = b.displayProducts ?? [];
+    return displayProducts.some((p) => p.id === normalizedProductId);
   });
 
   return new Response(JSON.stringify({ bundle: matched ?? null }), { headers });
