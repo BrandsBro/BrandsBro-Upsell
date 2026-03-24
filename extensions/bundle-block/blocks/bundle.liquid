@@ -9,11 +9,8 @@
   <div id="bundle-products-{{ block.id }}" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;"></div>
   <div style="display:flex; align-items:center; gap:16px;">
     <div id="bundle-savings-{{ block.id }}" style="font-size:15px; font-weight:600; color:#008060;"></div>
-    <button
-      id="bundle-btn-{{ block.id }}"
-      type="button"
-      style="flex:1; background:#000; color:#fff; border:none; border-radius:8px; padding:14px 20px; font-size:15px; font-weight:600; cursor:pointer;"
-    >
+    <button id="bundle-btn-{{ block.id }}" type="button"
+      style="flex:1; background:#000; color:#fff; border:none; border-radius:8px; padding:14px 20px; font-size:15px; font-weight:600; cursor:pointer;">
       {{ block.settings.button_text | default: 'Add Bundle to Cart' }}
     </button>
   </div>
@@ -50,78 +47,65 @@
       var dtype = bundle.discountType || "PERCENTAGE";
       var savings = dtype === "PERCENTAGE" ? (total * disc / 100) : disc;
       savingsEl.textContent = "Save $" + savings.toFixed(2) + " (" + disc + (dtype === "PERCENTAGE" ? "%" : "$") + " off)";
-
       widget.style.display = "block";
 
       btn.addEventListener("click", function() {
         btn.disabled = true;
         btn.textContent = "Adding...";
+
+        // Use the theme's existing add-to-cart form to trigger cart drawer
+        // This works on ANY theme because we use the theme's own form
+        var existingForm = document.querySelector("form[action='/cart/add']");
+        if (!existingForm) existingForm = document.querySelector(".product-form form");
+
+        // Add all bundle items one by one using the theme form
         var items = products.map(function(p) {
-          return { id: p.variantId.split("/").pop(), quantity: 1 };
+          return p.variantId.split("/").pop();
         });
 
-        // Add items to cart first
-        fetch("/cart/add.js", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: items })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function() {
-          btn.textContent = "✓ Added!";
-          btn.style.background = "#008060";
+        // Add items sequentially then trigger theme's cart open
+        var addNext = function(index) {
+          if (index >= items.length) {
+            // All added - trigger theme cart
+            btn.textContent = "✓ Added!";
+            btn.style.background = "#008060";
 
-          // Now fetch updated cart sections
-          fetch("/?sections=cart-drawer,cart-icon-bubble")
-            .then(function(r) { return r.json(); })
-            .then(function(sections) {
-              var parser = new DOMParser();
-
-              // Update cart icon bubble
-              if (sections["cart-icon-bubble"]) {
-                var doc = parser.parseFromString(sections["cart-icon-bubble"], "text/html");
-                var newBubble = doc.querySelector(".cart-count-bubble");
-                var oldBubble = document.querySelector(".cart-count-bubble");
-                if (oldBubble && newBubble) oldBubble.outerHTML = newBubble.outerHTML;
+            // Set the form's variant id to last item and submit
+            // This triggers the theme's own cart open behavior
+            if (existingForm) {
+              var input = existingForm.querySelector("[name='id']");
+              if (input) {
+                var originalValue = input.value;
+                input.value = items[items.length - 1];
+                var submitBtn = existingForm.querySelector("[type='submit']");
+                if (submitBtn) submitBtn.click();
+                setTimeout(function() { input.value = originalValue; }, 100);
               }
+            }
 
-              // Update and open cart drawer
-              if (sections["cart-drawer"]) {
-                var doc2 = parser.parseFromString(sections["cart-drawer"], "text/html");
-                var newDrawer = doc2.querySelector("cart-drawer");
-                var oldDrawer = document.querySelector("cart-drawer");
-                if (oldDrawer && newDrawer) {
-                  oldDrawer.outerHTML = newDrawer.outerHTML;
-                  // Re-query after outerHTML replacement
-                  var drawer = document.querySelector("cart-drawer");
-                  if (drawer) {
-                    drawer.removeAttribute("inert");
-                    drawer.open = true;
-                    // Trigger Dawn's open method
-                    var overlay = document.getElementById("CartDrawer-Overlay");
-                    if (overlay) overlay.click();
-                    // Try clicking the cart button to open
-                    setTimeout(function() {
-                      var cartBtn = document.querySelector("[href='/cart'], .cart-link, #cart-icon-bubble");
-                      if (cartBtn) cartBtn.click();
-                    }, 100);
-                  }
-                }
-              }
-            });
+            setTimeout(function() {
+              btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
+              btn.style.background = "#000";
+              btn.disabled = false;
+            }, 3000);
+            return;
+          }
 
-          setTimeout(function() {
-            btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
+          fetch("/cart/add.js", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ items: [{ id: items[index], quantity: 1 }] })
+          })
+          .then(function() { addNext(index + 1); })
+          .catch(function(err) {
+            console.error("Error adding item:", err);
+            btn.textContent = "Error — try again";
             btn.style.background = "#000";
             btn.disabled = false;
-          }, 3000);
-        })
-        .catch(function(err) {
-          console.error("Cart error:", err);
-          btn.textContent = "Error — try again";
-          btn.style.background = "#000";
-          btn.disabled = false;
-        });
+          });
+        };
+
+        addNext(0);
       });
     })
     .catch(function(e) { console.error("Bundle error:", e); });
