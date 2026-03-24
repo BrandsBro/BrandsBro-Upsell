@@ -96,6 +96,10 @@ export default function BundleFormPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
 
+  useEffect(() => {
+    fetcher.submit({ intent: "search_products", query: "" }, { method: "post" });
+  }, []);
+
   const isSearching = fetcher.state === "submitting" && fetcher.formData?.get("intent") === "search_products";
   const isSaving = fetcher.state === "submitting" && fetcher.formData?.get("intent") === "save_bundle";
 
