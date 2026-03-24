@@ -21,12 +21,12 @@ export default function BundlesPage() {
   const { bundles } = useLoaderData();
   const navigate = useNavigate();
   const matches = useMatches();
+  const { selectedResources, allResourcesSelected, handleSelectionChange } =
+    useIndexResourceState(bundles);
+
   const isChildRoute = matches.some(m => m.id === "routes/app.bundles.$id");
 
   if (isChildRoute) return <Outlet />;
-
-  const { selectedResources, allResourcesSelected, handleSelectionChange } =
-    useIndexResourceState(bundles);
 
   const rowMarkup = bundles.map((bundle, index) => {
     const products = bundle.products ?? [];
