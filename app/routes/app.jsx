@@ -9,8 +9,6 @@ import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
-  const url = new URL(request.url);
-  const host = url.searchParams.get("host") || "";
 
   await prisma.shop.upsert({
     where: { shopDomain: session.shop },
@@ -23,19 +21,14 @@ export const loader = async ({ request }) => {
     },
   });
 
-  return { apiKey: process.env.SHOPIFY_API_KEY || "", host, shop: session.shop };
+  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
 };
 
 export default function App() {
-  const { apiKey, host, shop } = useLoaderData();
-
-  if (typeof window !== "undefined") {
-    if (host) window.__shopify_host = host;
-  }
-  const finalHost = host || (typeof window !== "undefined" ? window.__shopify_host || "" : "");
+  const { apiKey } = useLoaderData();
 
   return (
-    <ShopifyAppProvider embedded apiKey={apiKey} host={finalHost} shop={shop}>
+    <ShopifyAppProvider embedded apiKey={apiKey}>
       <PolarisAppProvider i18n={enTranslations}>
         <ui-nav-menu>
           <a href="/app" rel="home">Home</a>
