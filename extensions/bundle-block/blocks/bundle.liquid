@@ -57,36 +57,38 @@
           return { id: p.variantId.split("/").pop(), quantity: 1 };
         });
 
-        // Build bundle data for cart attribute
-        var bundleData = JSON.stringify([{
-          productIds: products.map(function(p) { return p.id; }),
-          discountType: bundle.discountType,
-          discountValue: bundle.discountValue,
-        }]);
-
-        // Add items + set cart attribute for Cart Transform function
+        // Step 1: Add bundle items to cart
         fetch("/cart/add.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ items: items })
         })
-        .then(function() {
-          // Update cart attributes with bundle data
-          return fetch("/cart/update.js", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              attributes: { bundle_data: bundleData }
-            })
-          });
-        })
+        .then(function(r) { return r.json(); })
         .then(function() {
           btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
 
-          
-          
-          
+          // Step 2: Intercept the theme's add to cart form
+          // Change its variant to first bundle item (already in cart)
+          // and submit — this triggers the drawer WITHOUT adding duplicate
+          var form = document.querySelector("form[action='/cart/add']");
+          if (form) {
+            var idInput = form.querySelector("[name='id']");
+            var originalId = idInput ? idInput.value : null;
+            var originalQty = form.querySelector("[name='quantity']");
+
+            // Set quantity to 0 so nothing gets added
+            if (originalQty) originalQty.value = 0;
+
+            // Submit the form to trigger cart drawer
+            var submitBtn = form.querySelector("[name='add'], [type='submit']");
+            if (submitBtn) submitBtn.click();
+
+            // Restore original values
+            setTimeout(function() {
+              if (originalQty) originalQty.value = 1;
+            }, 500);
+          }
 
           setTimeout(function() {
             btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
