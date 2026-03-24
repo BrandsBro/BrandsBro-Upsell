@@ -10,41 +10,39 @@ import { authenticate } from "../shopify.server";
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const url = new URL(request.url);
-  let host = url.searchParams.get("host") || "";
-
-  // Read host from cookie if not in URL
-  const cookieHeader = request.headers.get("Cookie") || "";
-  if (!host) {
-    const match = cookieHeader.match(/shopify_host=([^;]+)/);
-    if (match) host = decodeURIComponent(match[1]);
-  }
+  const host = url.searchParams.get("host") || "";
+  const shop = session.shop;
 
   await prisma.shop.upsert({
-    where: { shopDomain: session.shop },
+    where: { shopDomain: shop },
     update: { isActive: true, accessToken: session.accessToken },
     create: {
-      shopDomain: session.shop,
+      shopDomain: shop,
       accessToken: session.accessToken,
       scope: session.scope ?? "",
       isActive: true,
     },
   });
 
-  const headers = new Headers();
-  if (url.searchParams.get("host")) {
-    headers.append("Set-Cookie", `shopify_host=${encodeURIComponent(host)}; Path=/; SameSite=None; Secure`);
-  }
-
-  return new Response(
-    JSON.stringify({ apiKey: process.env.SHOPIFY_API_KEY || "", host, shop: session.shop }),
-    { headers: { "Content-Type": "application/json", ...Object.fromEntries(headers) } }
-  );
+  return { apiKey: process.env.SHOPIFY_API_KEY || "", host, shop };
 };
 
 export default function App() {
   const { apiKey, host, shop } = useLoaderData();
+
+  // Get host from URL directly if loader didn't have it
+  const urlHost = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("host") || host
+    : host;
+
+  // Store host in sessionStorage for SPA navigations
+  if (typeof window !== "undefined" && urlHost) {
+    sessionStorage.setItem("shopify_host", urlHost);
+  }
+  const finalHost = urlHost || (typeof window !== "undefined" ? sessionStorage.getItem("shopify_host") || "" : "");
+
   return (
-    <ShopifyAppProvider embedded apiKey={apiKey} host={host} shop={shop}>
+    <ShopifyAppProvider embedded apiKey={apiKey} host={finalHost} shop={shop}>
       <PolarisAppProvider i18n={enTranslations}>
         <ui-nav-menu>
           <a href="/app" rel="home">Home</a>
