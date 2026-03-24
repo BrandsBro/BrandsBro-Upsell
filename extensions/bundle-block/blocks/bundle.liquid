@@ -57,16 +57,19 @@
         btn.disabled = true;
         btn.textContent = "Adding...";
         var items = products.map(function(p) {
-          return { id: parseInt(p.variantId.replace("gid://shopify/ProductVariant/", "")), quantity: 1 };
+          var variantId = p.variantId.replace("gid://shopify/ProductVariant/", "");
+          return { id: parseInt(variantId, 10), quantity: 1 };
         });
         fetch("/cart/add.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ items: items })
-        }).then(function() {
-          btn.textContent = "Added to cart!";
-          setTimeout(function() { window.location.href = "/cart"; }, 800);
-        }).catch(function() {
+        }).then(function(res) { return res.json(); })
+        .then(function() {
+          btn.textContent = "Added!";
+          window.location.href = "/cart";
+        }).catch(function(err) {
+          console.error("Cart error:", err);
           btn.textContent = "Error — try again";
           btn.disabled = false;
         });
