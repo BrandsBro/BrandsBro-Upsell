@@ -6,43 +6,36 @@ import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
 import "@shopify/polaris/build/esm/styles.css";
 import { authenticate } from "../shopify.server";
+import { useRef } from "react";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const url = new URL(request.url);
   const host = url.searchParams.get("host") || "";
-  const shop = session.shop;
 
   await prisma.shop.upsert({
-    where: { shopDomain: shop },
+    where: { shopDomain: session.shop },
     update: { isActive: true, accessToken: session.accessToken },
     create: {
-      shopDomain: shop,
+      shopDomain: session.shop,
       accessToken: session.accessToken,
       scope: session.scope ?? "",
       isActive: true,
     },
   });
 
-  return { apiKey: process.env.SHOPIFY_API_KEY || "", host, shop };
+  return { apiKey: process.env.SHOPIFY_API_KEY || "", host, shop: session.shop };
 };
 
 export default function App() {
   const { apiKey, host, shop } = useLoaderData();
+  const hostRef = useRef(host);
 
-  // Get host from URL directly if loader didn't have it
-  const urlHost = typeof window !== "undefined"
-    ? new URLSearchParams(window.location.search).get("host") || host
-    : host;
-
-  // Store host in sessionStorage for SPA navigations
-  if (typeof window !== "undefined" && urlHost) {
-    sessionStorage.setItem("shopify_host", urlHost);
-  }
-  const finalHost = urlHost || (typeof window !== "undefined" ? sessionStorage.getItem("shopify_host") || "" : "");
+  // Keep the host value once we have it - never reset to empty
+  if (host) hostRef.current = host;
 
   return (
-    <ShopifyAppProvider embedded apiKey={apiKey} host={finalHost} shop={shop}>
+    <ShopifyAppProvider embedded apiKey={apiKey} host={hostRef.current} shop={shop}>
       <PolarisAppProvider i18n={enTranslations}>
         <ui-nav-menu>
           <a href="/app" rel="home">Home</a>
