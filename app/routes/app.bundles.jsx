@@ -1,8 +1,9 @@
 import { useLoaderData, useNavigate, Outlet, useMatches, useFetcher } from "react-router";
 import {
   Page, Layout, Card, Text, BlockStack, Badge,
-  IndexTable, EmptyState, useIndexResourceState, Button, Modal, InlineStack,
+  IndexTable, EmptyState, useIndexResourceState, Button, Modal, InlineStack, Tooltip,
 } from "@shopify/polaris";
+import { EditIcon, DeleteIcon, DuplicateIcon } from "@shopify/polaris-icons";
 import { useState } from "react";
 import { authenticate } from "../shopify.server";
 import { prisma } from "../lib/prisma.server";
@@ -60,10 +61,6 @@ export default function BundlesPage() {
     setDeleteModal({ open: false, bundleId: null, bundleName: "" });
   };
 
-  const handleDuplicate = (bundleId) => {
-    fetcher.submit({ intent: "duplicate", bundleId }, { method: "post" });
-  };
-
   const rowMarkup = bundles.map((bundle, index) => {
     const products = bundle.products ?? [];
     return (
@@ -99,19 +96,31 @@ export default function BundlesPage() {
         </IndexTable.Cell>
         <IndexTable.Cell>
           <InlineStack gap="200">
-            <Button variant="plain" onClick={() => navigate(`/app/bundles/${bundle.id}`)}>
-              Edit
-            </Button>
-            <Button variant="plain" onClick={() => handleDuplicate(bundle.id)}>
-              Duplicate
-            </Button>
-            <Button
-              variant="plain"
-              tone="critical"
-              onClick={() => setDeleteModal({ open: true, bundleId: bundle.id, bundleName: bundle.name })}
-            >
-              Delete
-            </Button>
+            <Tooltip content="Edit">
+              <Button
+                variant="plain"
+                icon={EditIcon}
+                onClick={() => navigate(`/app/bundles/${bundle.id}`)}
+                accessibilityLabel="Edit bundle"
+              />
+            </Tooltip>
+            <Tooltip content="Duplicate">
+              <Button
+                variant="plain"
+                icon={DuplicateIcon}
+                onClick={() => fetcher.submit({ intent: "duplicate", bundleId: bundle.id }, { method: "post" })}
+                accessibilityLabel="Duplicate bundle"
+              />
+            </Tooltip>
+            <Tooltip content="Delete">
+              <Button
+                variant="plain"
+                tone="critical"
+                icon={DeleteIcon}
+                onClick={() => setDeleteModal({ open: true, bundleId: bundle.id, bundleName: bundle.name })}
+                accessibilityLabel="Delete bundle"
+              />
+            </Tooltip>
           </InlineStack>
         </IndexTable.Cell>
       </IndexTable.Row>
