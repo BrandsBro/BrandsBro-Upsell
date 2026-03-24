@@ -56,24 +56,65 @@
       btn.addEventListener("click", function() {
         btn.disabled = true;
         btn.textContent = "Adding...";
-        console.log("Bundle products:", products);
         var items = products.map(function(p) {
-          console.log("variantId raw:", p.variantId);
-          var variantId = p.variantId.split("/").pop();
-          return { id: variantId, quantity: 1 };
+          return { id: p.variantId.split("/").pop(), quantity: 1 };
         });
         fetch("/cart/add.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: items }),
-          credentials: "include"
-        }).then(function(res) { return res.json(); })
-        .then(function() {
-          btn.textContent = "Added! Refreshing...";
-          setTimeout(function() { window.location.reload(); }, 1000);
-        }).catch(function(err) {
+          body: JSON.stringify({ items: items, sections: "cart-drawer,cart-icon-bubble", sections_url: window.location.pathname })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(response) {
+          btn.textContent = "✓ Added to cart!";
+          btn.style.background = "#008060";
+
+          // Update sections if returned
+          if (response.sections) {
+            Object.keys(response.sections).forEach(function(key) {
+              var parser = new DOMParser();
+              var doc = parser.parseFromString(response.sections[key], "text/html");
+
+              if (key === "cart-drawer") {
+                var newDrawer = doc.querySelector("cart-drawer");
+                var oldDrawer = document.querySelector("cart-drawer");
+                if (oldDrawer && newDrawer) {
+                  oldDrawer.innerHTML = newDrawer.innerHTML;
+                  if (typeof oldDrawer.open === "function") oldDrawer.open();
+                  oldDrawer.removeAttribute("inert");
+                  oldDrawer.setAttribute("open", "");
+                }
+              }
+
+              if (key === "cart-icon-bubble") {
+                var newBubble = doc.querySelector(".cart-count-bubble");
+                var oldBubble = document.querySelector(".cart-count-bubble");
+                if (oldBubble && newBubble) oldBubble.innerHTML = newBubble.innerHTML;
+              }
+            });
+          }
+
+          // Fallback - dispatch events for any theme
+          document.dispatchEvent(new CustomEvent("cart:refresh", { bubbles: true }));
+          window.dispatchEvent(new CustomEvent("cart:refresh", { bubbles: true }));
+
+          // Dawn theme specific
+          var cartDrawer = document.querySelector("cart-drawer");
+          if (cartDrawer) {
+            cartDrawer.dispatchEvent(new CustomEvent("cart:open", { bubbles: true }));
+          }
+
+          // Reset button after 3 seconds
+          setTimeout(function() {
+            btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
+            btn.style.background = "#000";
+            btn.disabled = false;
+          }, 3000);
+        })
+        .catch(function(err) {
           console.error("Cart error:", err);
           btn.textContent = "Error — try again";
+          btn.style.background = "#000";
           btn.disabled = false;
         });
       });
