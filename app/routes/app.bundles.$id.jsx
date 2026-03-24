@@ -37,7 +37,34 @@ export const loader = async ({ request, params }) => {
     price: e.node.variants.edges[0]?.node.price ?? "0",
   }));
 
-  if (params.id && params.id !== "new") {
+  // Create automatic discount function if not exists
+  if (status === "ACTIVE") {
+    const functionId = "9af3f994-bd51-6887-fcd6-54cf5d37c00cecfbebbd";
+    const existing = await prisma.shop.findUnique({ where: { shopDomain: session.shop } });
+    if (!existing?.discountId) {
+      const discountResult = await admin.graphql(`
+        mutation {
+          discountAutomaticAppCreate(automaticAppDiscount: {
+            title: "BrandsBro Bundle Discount"
+            functionId: "${functionId}"
+            startsAt: "${new Date().toISOString()}"
+          }) {
+            automaticAppDiscount {
+              discountId
+            }
+            userErrors { field message }
+          }
+        }
+      `);
+      const discountData = await discountResult.json();
+      const discountId = discountData?.data?.discountAutomaticAppCreate?.automaticAppDiscount?.discountId;
+      if (discountId) {
+        await prisma.shop.update({ where: { shopDomain: session.shop }, data: { discountId } });
+      }
+    }
+  }
+
+  if (params.id   if (params.id && params.id !== "new") {  if (params.id && params.id !== "new") { params.id !== "new") {
     const shop = await prisma.shop.findUnique({ where: { shopDomain: session.shop } });
     const bundle = await prisma.bundle.findFirst({
       where: { id: params.id, shopId: shop?.id },
@@ -68,7 +95,34 @@ export const action = async ({ request, params }) => {
     displayOnAll: false,
   };
 
-  if (params.id && params.id !== "new") {
+  // Create automatic discount function if not exists
+  if (status === "ACTIVE") {
+    const functionId = "9af3f994-bd51-6887-fcd6-54cf5d37c00cecfbebbd";
+    const existing = await prisma.shop.findUnique({ where: { shopDomain: session.shop } });
+    if (!existing?.discountId) {
+      const discountResult = await admin.graphql(`
+        mutation {
+          discountAutomaticAppCreate(automaticAppDiscount: {
+            title: "BrandsBro Bundle Discount"
+            functionId: "${functionId}"
+            startsAt: "${new Date().toISOString()}"
+          }) {
+            automaticAppDiscount {
+              discountId
+            }
+            userErrors { field message }
+          }
+        }
+      `);
+      const discountData = await discountResult.json();
+      const discountId = discountData?.data?.discountAutomaticAppCreate?.automaticAppDiscount?.discountId;
+      if (discountId) {
+        await prisma.shop.update({ where: { shopDomain: session.shop }, data: { discountId } });
+      }
+    }
+  }
+
+  if (params.id   if (params.id && params.id !== "new") {  if (params.id && params.id !== "new") { params.id !== "new") {
     await prisma.bundle.update({ where: { id: params.id }, data });
   } else {
     await prisma.bundle.create({ data: { ...data, shopId: shop.id } });
