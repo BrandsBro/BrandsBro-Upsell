@@ -52,25 +52,42 @@
       btn.addEventListener("click", function() {
         btn.disabled = true;
         btn.textContent = "Adding...";
+
         var items = products.map(function(p) {
           return { id: p.variantId.split("/").pop(), quantity: 1 };
         });
 
-        // Add all bundle items to cart
+        // Build bundle data for cart attribute
+        var bundleData = JSON.stringify([{
+          productIds: products.map(function(p) { return p.id; }),
+          discountType: bundle.discountType,
+          discountValue: bundle.discountValue,
+        }]);
+
+        // Add items + set cart attribute for Cart Transform function
         fetch("/cart/add.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ items: items })
         })
-        .then(function(r) { return r.json(); })
         .then(function() {
-          // Simply click the page's own Add to Cart button
-          // This triggers whatever the theme does natively
-          var addToCartBtn = document.querySelector("[name='add']");
-          if (addToCartBtn) addToCartBtn.click();
-
+          // Update cart attributes with bundle data
+          return fetch("/cart/update.js", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              attributes: { bundle_data: bundleData }
+            })
+          });
+        })
+        .then(function() {
           btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
+
+          // Trigger native add to cart button to open drawer
+          var addBtn = document.querySelector("[name='add']");
+          if (addBtn) addBtn.click();
+
           setTimeout(function() {
             btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
             btn.style.background = "#000";
@@ -84,8 +101,7 @@
           btn.disabled = false;
         });
       });
-    })
-    .catch(function(e) { console.error("Bundle error:", e); });
+    });
 })();
 </script>
 
