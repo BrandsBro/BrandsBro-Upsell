@@ -72,7 +72,7 @@ export const action = async ({ request, params }) => {
   };
 
   // Create automatic discount function once per shop
-  if (status === "ACTIVE" && !shop.discountId) {
+  if (status === "ACTIVE") {
     try {
       const discountResult = await admin.graphql(`
         mutation {
