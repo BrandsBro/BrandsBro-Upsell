@@ -92,7 +92,25 @@
         .then(function() {
           btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
-          window.location.href = "/cart";
+          // Force open cart drawer universally
+          var drawer = document.querySelector("cart-drawer, #CartDrawer, .cart-drawer, [id*=cart-drawer], [class*=cart-drawer]");
+          if (drawer) {
+            drawer.removeAttribute("inert");
+            drawer.removeAttribute("hidden");
+            drawer.removeAttribute("aria-hidden");
+            drawer.classList.remove("hidden", "is-hidden", "closed");
+            drawer.classList.add("open", "is-open", "active", "is-active");
+            drawer.style.display = "block";
+            drawer.style.visibility = "visible";
+            // Also trigger overlay
+            var overlay = document.querySelector(".cart-overlay, .drawer-overlay, #CartDrawer-Overlay");
+            if (overlay) {
+              overlay.removeAttribute("hidden");
+              overlay.classList.add("is-visible");
+            }
+          } else {
+            window.location.href = "/cart";
+          }
         })
         .catch(function(err) {
           console.error("Cart error:", err);
