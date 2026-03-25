@@ -69,52 +69,57 @@
           discountValue: bundle.discountValue,
         }]);
 
-        // Step 1: Add all bundle items silently via fetch
+        // Add items WITH sections - response contains updated cart HTML
         fetch("/cart/add.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: items })
+          body: JSON.stringify({
+            items: items,
+            sections: "cart-drawer,cart-icon-bubble",
+            sections_url: window.location.pathname
+          })
         })
         .then(function(r) { return r.json(); })
-        .then(function() {
-          // Step 2: Set bundle data for discount function
-          return fetch("/cart/update.js", {
+        .then(function(response) {
+          // Set bundle data for discount function
+          fetch("/cart/update.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ attributes: { bundle_data: bundleData } })
           });
-        })
-        .then(function() {
+
           btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
 
-          // Step 3: Hijack the theme's add to cart form
-          // Replace variant ID with first bundle item (already in cart)
-          // Set quantity to 0 so nothing new gets added
-          // Submit so theme's JS fires naturally and opens drawer
-          var form = document.querySelector("form[action='/cart/add']");
-          if (form) {
-            var idInput = form.querySelector("[name='id']");
-            var qtyInput = form.querySelector("[name='quantity']");
-            var submitBtn = form.querySelector("[name='add']");
-
-            if (idInput && submitBtn) {
-              var origId = idInput.value;
-              var origQty = qtyInput ? qtyInput.value : "1";
-
-              // Set to first bundle variant (already in cart) with qty 0
-              idInput.value = items[0].id;
-              if (qtyInput) qtyInput.value = "0";
-
-              // Click submit — theme JS fires, opens drawer with updated cart
-              submitBtn.click();
-
-              // Restore original values after theme JS reads them
-              setTimeout(function() {
-                idInput.value = origId;
-                if (qtyInput) qtyInput.value = origQty;
-              }, 300);
+          // Use sections from response to update cart drawer
+          if (response.sections) {
+            var cartDrawer = document.querySelector("cart-drawer");
+            if (cartDrawer && typeof cartDrawer.renderContents === "function") {
+              // Dawn theme - use renderContents directly
+              cartDrawer.renderContents(response);
+            } else {
+              // Other themes - manually update sections and open
+              var parser = new DOMParser();
+              if (response.sections["cart-drawer"]) {
+                var doc = parser.parseFromString(response.sections["cart-drawer"], "text/html");
+                var newDrawer = doc.querySelector("#CartDrawer, cart-drawer, .cart-drawer");
+                var oldDrawer = document.querySelector("#CartDrawer, cart-drawer, .cart-drawer");
+                if (oldDrawer && newDrawer) {
+                  oldDrawer.innerHTML = newDrawer.innerHTML;
+                }
+              }
+              if (response.sections["cart-icon-bubble"]) {
+                var doc2 = parser.parseFromString(response.sections["cart-icon-bubble"], "text/html");
+                var newBubble = doc2.querySelector(".cart-count-bubble");
+                var oldBubble = document.querySelector(".cart-count-bubble");
+                if (oldBubble && newBubble) oldBubble.outerHTML = newBubble.outerHTML;
+              }
+              // Open drawer
+              var drawer = document.querySelector("cart-drawer");
+              if (drawer && typeof drawer.open === "function") drawer.open();
             }
+          } else {
+            window.location.href = "/cart";
           }
 
           setTimeout(function() {
