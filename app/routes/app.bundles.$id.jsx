@@ -78,7 +78,7 @@ export const action = async ({ request, params }) => {
         `mutation CreateDiscount($functionId: String!, $startsAt: DateTime!) {
           discountAutomaticAppCreate(automaticAppDiscount: {
             title: "BrandsBro Bundle Discount"
-            function: { id: $functionId }
+            functionId: $functionId
             startsAt: $startsAt
           }) {
             automaticAppDiscount {
