@@ -37,31 +37,95 @@ export const loader = async ({ request }) => {
   }));
 
   const shop = await prisma.shop.findUnique({ where: { shopDomain: session.shop } });
-  return { allProducts, cartUpsellProducts: shop?.cartUpsellProducts ?? [] };
+  return {
+    allProducts,
+    cartUpsellProducts: shop?.cartUpsellProducts ?? [],
+    cartUpsellActive: shop?.cartUpsellActive ?? false,
+  };
 };
 
 export const action = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const formData = await request.formData();
-  const products = JSON.parse(String(formData.get("products") || "[]"));
-  await prisma.shop.update({
-    where: { shopDomain: session.shop },
-    data: { cartUpsellProducts: products },
-  });
-  return { success: true };
+  const intent = String(formData.get("intent"));
+
+  const shop = await prisma.shop.findUnique({ where: { shopDomain: session.shop } });
+
+  if (intent === "save_products") {
+    const products = JSON.parse(String(formData.get("products") || "[]"));
+    await prisma.shop.update({
+      where: { shopDomain: session.shop },
+      data: { cartUpsellProducts: products },
+    });
+    return { success: true };
+  }
+
+  if (intent === "toggle_active") {
+    const active = formData.get("active") === "true";
+
+    if (active) {
+      // Create ScriptTag to inject cart upsell on all pages
+      const scriptUrl = "https://brandsbro-upsell.onrender.com/cart-upsell.js";
+      const result = await admin.graphql(`
+        mutation {
+          scriptTagCreate(input: {
+            src: "${scriptUrl}"
+            displayScope: ONLINE_STORE
+          }) {
+            scriptTag { id src }
+            userErrors { field message }
+          }
+        }
+      `);
+      const resultData = await result.json();
+      const scriptTagId = resultData?.data?.scriptTagCreate?.scriptTag?.id;
+      await prisma.shop.update({
+        where: { shopDomain: session.shop },
+        data: { cartUpsellActive: true, cartUpsellScriptTagId: scriptTagId ?? null },
+      });
+    } else {
+      // Delete ScriptTag
+      if (shop?.cartUpsellScriptTagId) {
+        await admin.graphql(`
+          mutation {
+            scriptTagDelete(id: "${shop.cartUpsellScriptTagId}") {
+              deletedScriptTagId
+              userErrors { field message }
+            }
+          }
+        `);
+      }
+      await prisma.shop.update({
+        where: { shopDomain: session.shop },
+        data: { cartUpsellActive: false, cartUpsellScriptTagId: null },
+      });
+    }
+    return { success: true, active };
+  }
+
+  return {};
 };
 
 export default function CartUpsellPage() {
-  const { allProducts, cartUpsellProducts } = useLoaderData();
+  const { allProducts, cartUpsellProducts, cartUpsellActive } = useLoaderData();
   const fetcher = useFetcher();
 
   const [selectedProducts, setSelectedProducts] = useState(cartUpsellProducts);
+  const [active, setActive] = useState(cartUpsellActive);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedInPicker, setSelectedInPicker] = useState([]);
 
   const isSaving = fetcher.state === "submitting";
-  const saved = fetcher.data?.success;
+
+  const handleToggle = useCallback(() => {
+    const newActive = !active;
+    setActive(newActive);
+    fetcher.submit(
+      { intent: "toggle_active", active: String(newActive) },
+      { method: "post" }
+    );
+  }, [active, fetcher]);
 
   const handleOpenPicker = useCallback(() => {
     setSelectedInPicker(selectedProducts.map(p => p.id));
@@ -70,16 +134,14 @@ export default function CartUpsellPage() {
   }, [selectedProducts]);
 
   const handleConfirm = useCallback(() => {
-    setSelectedProducts(allProducts.filter(p => selectedInPicker.includes(p.id)).slice(0, 5));
+    const confirmed = allProducts.filter(p => selectedInPicker.includes(p.id)).slice(0, 5);
+    setSelectedProducts(confirmed);
     setPickerOpen(false);
-  }, [selectedInPicker, allProducts]);
-
-  const handleSave = useCallback(() => {
     fetcher.submit(
-      { products: JSON.stringify(selectedProducts) },
+      { intent: "save_products", products: JSON.stringify(confirmed) },
       { method: "post" }
     );
-  }, [selectedProducts, fetcher]);
+  }, [selectedInPicker, allProducts, fetcher]);
 
   const toggle = useCallback((id) => {
     setSelectedInPicker(prev =>
@@ -90,8 +152,7 @@ export default function CartUpsellPage() {
   return (
     <Page
       title="Cart Drawer Upsell"
-      subtitle="Select up to 5 products to show in the cart drawer"
-      primaryAction={{ content: "Save", loading: isSaving, onAction: handleSave }}
+      subtitle="Show upsell products inside the cart drawer on all pages"
     >
       <Modal
         open={pickerOpen}
@@ -130,7 +191,8 @@ export default function CartUpsellPage() {
                     opacity: !selectedInPicker.includes(product.id) && selectedInPicker.length >= 5 ? 0.4 : 1,
                   }}
                 >
-                  <input type="checkbox" checked={selectedInPicker.includes(product.id)}
+                  <input type="checkbox"
+                    checked={selectedInPicker.includes(product.id)}
                     onChange={() => toggle(product.id)}
                     style={{ width: 18, height: 18, cursor: "pointer" }}
                     disabled={!selectedInPicker.includes(product.id) && selectedInPicker.length >= 5}
@@ -154,51 +216,86 @@ export default function CartUpsellPage() {
 
       <Layout>
         <Layout.Section>
-          <Card>
-            <BlockStack gap="400">
-              <InlineStack align="space-between">
-                <Text as="h2" variant="headingMd">Upsell products</Text>
-                <Badge tone={selectedProducts.length > 0 ? "success" : "attention"}>
-                  {selectedProducts.length} / 5 selected
-                </Badge>
-              </InlineStack>
-              <Divider />
+          <BlockStack gap="400">
+            <Card>
+              <BlockStack gap="400">
+                <InlineStack align="space-between">
+                  <BlockStack gap="100">
+                    <Text as="h2" variant="headingMd">Cart Upsell Widget</Text>
+                    <Text as="p" tone="subdued" variant="bodySm">
+                      Automatically shows upsell products in cart drawer on all pages
+                    </Text>
+                  </BlockStack>
+                  <Button
+                    variant={active ? "secondary" : "primary"}
+                    tone={active ? "critical" : undefined}
+                    loading={isSaving}
+                    onClick={handleToggle}
+                  >
+                    {active ? "Deactivate" : "Activate"}
+                  </Button>
+                </InlineStack>
+                <Divider />
+                <InlineStack gap="200">
+                  <Badge tone={active ? "success" : "attention"}>
+                    {active ? "Active" : "Inactive"}
+                  </Badge>
+                  <Text as="p" tone="subdued" variant="bodySm">
+                    {active ? "Widget is live on your store" : "Widget is not showing on your store"}
+                  </Text>
+                </InlineStack>
+              </BlockStack>
+            </Card>
 
-              {selectedProducts.length > 0 && (
-                <ResourceList
-                  resourceName={{ singular: "product", plural: "products" }}
-                  items={selectedProducts}
-                  renderItem={(product) => (
-                    <ResourceItem
-                      id={product.id}
-                      media={<Thumbnail source={product.image || ""} alt={product.title} size="small" />}
-                      shortcutActions={[{
-                        content: "Remove", destructive: true,
-                        onAction: () => setSelectedProducts(prev => prev.filter(p => p.id !== product.id))
-                      }]}
-                    >
-                      <Text fontWeight="bold" as="p">{product.title}</Text>
-                      <Text tone="subdued" as="p">${product.price}</Text>
-                    </ResourceItem>
-                  )}
-                />
-              )}
+            <Card>
+              <BlockStack gap="400">
+                <InlineStack align="space-between">
+                  <Text as="h2" variant="headingMd">Upsell products</Text>
+                  <Badge tone={selectedProducts.length > 0 ? "success" : "attention"}>
+                    {selectedProducts.length} / 5 selected
+                  </Badge>
+                </InlineStack>
+                <Divider />
 
-              <Button onClick={handleOpenPicker}>
-                {selectedProducts.length > 0 ? "Edit upsell products" : "Select upsell products"}
-              </Button>
+                {selectedProducts.length > 0 && (
+                  <ResourceList
+                    resourceName={{ singular: "product", plural: "products" }}
+                    items={selectedProducts}
+                    renderItem={(product) => (
+                      <ResourceItem
+                        id={product.id}
+                        media={<Thumbnail source={product.image || ""} alt={product.title} size="small" />}
+                        shortcutActions={[{
+                          content: "Remove", destructive: true,
+                          onAction: () => {
+                            const updated = selectedProducts.filter(p => p.id !== product.id);
+                            setSelectedProducts(updated);
+                            fetcher.submit(
+                              { intent: "save_products", products: JSON.stringify(updated) },
+                              { method: "post" }
+                            );
+                          }
+                        }]}
+                      >
+                        <Text fontWeight="bold" as="p">{product.title}</Text>
+                        <Text tone="subdued" as="p">${product.price}</Text>
+                      </ResourceItem>
+                    )}
+                  />
+                )}
 
-              {selectedProducts.length === 0 && (
-                <Banner tone="info">
-                  Select up to 5 products to show as upsells in the cart drawer.
-                </Banner>
-              )}
+                <Button onClick={handleOpenPicker}>
+                  {selectedProducts.length > 0 ? "Edit upsell products" : "Select upsell products"}
+                </Button>
 
-              {saved && (
-                <Banner tone="success">Saved successfully!</Banner>
-              )}
-            </BlockStack>
-          </Card>
+                {selectedProducts.length === 0 && (
+                  <Banner tone="info">
+                    Select up to 5 products to show as upsells in the cart drawer.
+                  </Banner>
+                )}
+              </BlockStack>
+            </Card>
+          </BlockStack>
         </Layout.Section>
 
         <Layout.Section variant="oneThird">
@@ -206,9 +303,10 @@ export default function CartUpsellPage() {
             <BlockStack gap="300">
               <Text as="h2" variant="headingMd">How it works</Text>
               <Divider />
-              <Text as="p" tone="subdued">Selected products appear as a carousel at the bottom of the cart drawer.</Text>
-              <Text as="p" tone="subdued">Customers can scroll through and add products with one click.</Text>
-              <Text as="p" tone="subdued">Works on all themes automatically.</Text>
+              <Text as="p" tone="subdued">1. Select up to 5 products</Text>
+              <Text as="p" tone="subdued">2. Click Activate</Text>
+              <Text as="p" tone="subdued">3. Widget automatically appears in cart drawer on all pages</Text>
+              <Text as="p" tone="subdued">4. No theme changes needed</Text>
             </BlockStack>
           </Card>
         </Layout.Section>

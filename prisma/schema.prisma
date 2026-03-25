@@ -44,6 +44,8 @@ model Shop {
 
   discountId    String?
   cartUpsellProducts Json @default("[]")
+  cartUpsellActive     Boolean @default(false)
+  cartUpsellScriptTagId String?
   @@map("shops")
 }
 
