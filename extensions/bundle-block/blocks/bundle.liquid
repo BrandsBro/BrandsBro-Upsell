@@ -84,7 +84,7 @@
         fetch("/cart/add.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: items })
+          body: JSON.stringify({ items: items, sections: "cart-drawer,cart-icon-bubble", sections_url: window.location.pathname })
         })
         .then(function(r) { return r.json(); })
         .then(function() {
@@ -99,8 +99,9 @@
           btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
 
-          // Click the cart icon to open drawer - universal
-          var cartIcon = document.querySelector(
+          // Use Shopify sections API - theme handles drawer opening automatically
+          // Theme JS opens drawer automatically via sections
+          // var cartIcon = document.querySelector(
             "a[href='/cart'], button[aria-label*='cart' i], .cart-icon, #cart-icon-bubble, " +
             ".header__cart, [data-cart-toggle], .cart-toggle, .js-cart-toggle, " +
             ".header__icon--cart, [href*='/cart']"
