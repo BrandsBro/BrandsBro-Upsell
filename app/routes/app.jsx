@@ -34,6 +34,7 @@ export default function App() {
           <a href="/app" rel="home">Home</a>
           <a href="/app/funnels">Funnels</a>
           <a href="/app/bundles">Bundles</a>
+          <a href="/app/cart-upsell">Cart Upsell</a>
           <a href="/app/analytics">Analytics</a>
         </ui-nav-menu>
         <Outlet />

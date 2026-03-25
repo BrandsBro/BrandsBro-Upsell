@@ -1,0 +1,110 @@
+{% assign app_url = "https://brandsbro-upsell.onrender.com" %}
+
+<div id="bb-cart-upsell" style="display:none; padding:16px 0; border-top:1px solid #e5e5e5; margin-top:16px;">
+  <p style="font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 12px; color:#333;">You might also like</p>
+  <div id="bb-upsell-products" style="display:flex; gap:12px; overflow-x:auto; scrollbar-width:none; padding-bottom:4px;"></div>
+</div>
+
+<style>
+#bb-upsell-products::-webkit-scrollbar { display: none; }
+</style>
+
+<script>
+(function() {
+  var shopDomain = "{{ shop.permanent_domain }}";
+  var appUrl = "{{ app_url }}";
+
+  function injectUpsell() {
+    fetch(appUrl + "/api/cart-upsell?shop=" + shopDomain)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var products = data.products || [];
+        if (products.length === 0) return;
+
+        var container = document.getElementById("bb-upsell-products");
+        var widget = document.getElementById("bb-cart-upsell");
+        if (!container) return;
+
+        container.innerHTML = products.map(function(p) {
+          return '<div style="flex-shrink:0; width:140px; background:#fff; border:1px solid #e5e5e5; border-radius:8px; overflow:hidden;">' +
+            (p.image ? '<img src="' + p.image + '" style="width:100%; height:100px; object-fit:cover;" />' : '') +
+            '<div style="padding:8px;">' +
+            '<p style="font-size:12px; font-weight:600; margin:0 0 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + p.title + '</p>' +
+            '<p style="font-size:12px; color:#666; margin:0 0 8px;">$' + p.price + '</p>' +
+            '<button onclick="bbAddToCart(\'' + p.variantId.split("/").pop() + '\', this)" style="width:100%; background:#000; color:#fff; border:none; border-radius:4px; padding:6px; font-size:12px; font-weight:600; cursor:pointer;">Add</button>' +
+            '</div></div>';
+        }).join('');
+
+        widget.style.display = "block";
+      });
+  }
+
+  window.bbAddToCart = function(variantId, btn) {
+    btn.disabled = true;
+    btn.textContent = "Adding...";
+    fetch("/cart/add.js", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: [{ id: parseInt(variantId), quantity: 1 }] })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function() {
+      btn.textContent = "✓ Added";
+      btn.style.background = "#008060";
+      // Refresh cart drawer contents
+      fetch("/?sections=cart-drawer,cart-icon-bubble")
+        .then(function(r) { return r.json(); })
+        .then(function(sections) {
+          var cartDrawer = document.querySelector("cart-drawer");
+          if (cartDrawer && typeof cartDrawer.renderContents === "function") {
+            cartDrawer.classList.remove("is-empty");
+            cartDrawer.renderContents({ sections: sections });
+          }
+          var doc = new DOMParser().parseFromString(sections["cart-icon-bubble"] || "", "text/html");
+          var newBubble = doc.querySelector(".cart-count-bubble");
+          var oldBubble = document.querySelector(".cart-count-bubble");
+          if (oldBubble && newBubble) oldBubble.outerHTML = newBubble.outerHTML;
+        });
+      setTimeout(function() {
+        btn.textContent = "Add";
+        btn.style.background = "#000";
+        btn.disabled = false;
+      }, 2000);
+    })
+    .catch(function() {
+      btn.textContent = "Error";
+      btn.disabled = false;
+    });
+  };
+
+  // Inject into cart drawer when it opens
+  var cartDrawer = document.querySelector("cart-drawer");
+  if (cartDrawer) {
+    var observer = new MutationObserver(function() {
+      if (cartDrawer.classList.contains("active")) {
+        var existing = cartDrawer.querySelector("#bb-cart-upsell");
+        if (!existing) {
+          var footer = cartDrawer.querySelector(".drawer__footer");
+          if (footer) {
+            var upsellWidget = document.getElementById("bb-cart-upsell");
+            if (upsellWidget) footer.insertBefore(upsellWidget, footer.firstChild);
+          }
+          injectUpsell();
+        }
+      }
+    });
+    observer.observe(cartDrawer, { attributes: true, attributeFilter: ["class"] });
+  }
+
+  // Also load on page init if drawer is already open
+  injectUpsell();
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Cart Upsell",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}

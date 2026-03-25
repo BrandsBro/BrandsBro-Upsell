@@ -42,6 +42,8 @@ model Shop {
   upsellEvents  UpsellEvent[]
   bundles       Bundle[]      
 
+  discountId    String?
+  cartUpsellProducts Json @default("[]")
   @@map("shops")
 }
 
