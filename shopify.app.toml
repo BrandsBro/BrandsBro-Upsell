@@ -18,7 +18,7 @@ api_version = "2026-04"
   uri = "/webhooks/app/scopes_update"
 
 [access_scopes]
-scopes = "write_products,read_products,write_orders,read_orders"
+scopes = "write_products,read_products,write_orders,read_orders,write_discounts,read_discounts"
 
 [auth]
 redirect_urls = [ 
