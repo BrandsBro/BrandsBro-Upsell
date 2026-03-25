@@ -9,7 +9,7 @@ import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server";
 import { prisma } from "../lib/prisma.server";
 
-const FUNCTION_ID = "9af3f994-bd51-6887-fcd6-54cf5d37c00cecfbebbd";
+const FUNCTION_ID = "019d1f64-2480-789e-9265-8465ad95930f";
 
 export const loader = async ({ request, params }) => {
   const { session, admin } = await authenticate.admin(request);
