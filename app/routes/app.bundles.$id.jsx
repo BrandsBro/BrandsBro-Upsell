@@ -79,6 +79,7 @@ export const action = async ({ request, params }) => {
           discountAutomaticAppCreate(automaticAppDiscount: {
             title: "BrandsBro Bundle Discount"
             functionId: $functionId
+            discountClasses: [PRODUCT]
             startsAt: $startsAt
           }) {
             automaticAppDiscount {
