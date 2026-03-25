@@ -1,47 +1,57 @@
 {% assign app_url = "https://brandsbro-upsell.onrender.com" %}
 
-<div id="bb-cart-upsell" style="display:none; padding:16px 0; border-top:1px solid #e5e5e5; margin-top:16px;">
-  <p style="font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 12px; color:#333;">You might also like</p>
-  <div id="bb-upsell-products" style="display:flex; gap:12px; overflow-x:auto; scrollbar-width:none; padding-bottom:4px;"></div>
+<div id="bb-cart-upsell-widget" style="display:none; padding:16px; border-top:1px solid #e5e5e5;">
+  <p style="font-size:13px; font-weight:700; margin:0 0 12px; color:#333;">You might also like</p>
+  <div id="bb-upsell-track" style="display:flex; gap:10px; overflow-x:auto; scrollbar-width:none; padding-bottom:4px;"></div>
 </div>
 
-<style>
-#bb-upsell-products::-webkit-scrollbar { display: none; }
-</style>
+<style>#bb-upsell-track::-webkit-scrollbar{display:none}</style>
 
 <script>
 (function() {
   var shopDomain = "{{ shop.permanent_domain }}";
   var appUrl = "{{ app_url }}";
 
-  function injectUpsell() {
+  function loadUpsellProducts() {
     fetch(appUrl + "/api/cart-upsell?shop=" + shopDomain)
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var products = data.products || [];
         if (products.length === 0) return;
 
-        var container = document.getElementById("bb-upsell-products");
-        var widget = document.getElementById("bb-cart-upsell");
-        if (!container) return;
+        var track = document.getElementById("bb-upsell-track");
+        if (!track) return;
 
-        container.innerHTML = products.map(function(p) {
-          return '<div style="flex-shrink:0; width:140px; background:#fff; border:1px solid #e5e5e5; border-radius:8px; overflow:hidden;">' +
-            (p.image ? '<img src="' + p.image + '" style="width:100%; height:100px; object-fit:cover;" />' : '') +
+        track.innerHTML = products.map(function(p) {
+          var vid = p.variantId.split("/").pop();
+          return '<div style="flex-shrink:0;width:130px;background:#fff;border:1px solid #e5e5e5;border-radius:8px;overflow:hidden;">' +
+            (p.image ? '<img src="' + p.image + '" style="width:100%;height:90px;object-fit:cover;"/>' : '') +
             '<div style="padding:8px;">' +
-            '<p style="font-size:12px; font-weight:600; margin:0 0 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + p.title + '</p>' +
-            '<p style="font-size:12px; color:#666; margin:0 0 8px;">$' + p.price + '</p>' +
-            '<button onclick="bbAddToCart(\'' + p.variantId.split("/").pop() + '\', this)" style="width:100%; background:#000; color:#fff; border:none; border-radius:4px; padding:6px; font-size:12px; font-weight:600; cursor:pointer;">Add</button>' +
+            '<p style="font-size:11px;font-weight:600;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + p.title + '</p>' +
+            '<p style="font-size:11px;color:#666;margin:0 0 6px;">$' + p.price + '</p>' +
+            '<button id="bb-upsell-btn-' + vid + '" onclick="bbUpsellAdd(\'' + vid + '\')" style="width:100%;background:#000;color:#fff;border:none;border-radius:4px;padding:5px;font-size:11px;font-weight:600;cursor:pointer;">+ Add</button>' +
             '</div></div>';
         }).join('');
 
-        widget.style.display = "block";
+        injectIntoDrawer();
       });
   }
 
-  window.bbAddToCart = function(variantId, btn) {
-    btn.disabled = true;
-    btn.textContent = "Adding...";
+  function injectIntoDrawer() {
+    var cartDrawer = document.querySelector("cart-drawer");
+    var widget = document.getElementById("bb-cart-upsell-widget");
+    if (!cartDrawer || !widget) return;
+    var footer = cartDrawer.querySelector(".drawer__footer");
+    if (footer && !footer.querySelector("#bb-cart-upsell-widget")) {
+      footer.insertBefore(widget, footer.firstChild);
+      widget.style.display = "block";
+    }
+  }
+
+  window.bbUpsellAdd = function(variantId) {
+    var btn = document.getElementById("bb-upsell-btn-" + variantId);
+    if (btn) { btn.disabled = true; btn.textContent = "Adding..."; }
+
     fetch("/cart/add.js", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -49,62 +59,49 @@
     })
     .then(function(r) { return r.json(); })
     .then(function() {
-      btn.textContent = "✓ Added";
-      btn.style.background = "#008060";
-      // Refresh cart drawer contents
-      fetch("/?sections=cart-drawer,cart-icon-bubble")
-        .then(function(r) { return r.json(); })
-        .then(function(sections) {
-          var cartDrawer = document.querySelector("cart-drawer");
-          if (cartDrawer && typeof cartDrawer.renderContents === "function") {
-            cartDrawer.classList.remove("is-empty");
-            cartDrawer.renderContents({ sections: sections });
-          }
-          var doc = new DOMParser().parseFromString(sections["cart-icon-bubble"] || "", "text/html");
-          var newBubble = doc.querySelector(".cart-count-bubble");
-          var oldBubble = document.querySelector(".cart-count-bubble");
-          if (oldBubble && newBubble) oldBubble.outerHTML = newBubble.outerHTML;
-        });
+      if (btn) { btn.textContent = "✓ Added"; btn.style.background = "#008060"; }
       setTimeout(function() {
-        btn.textContent = "Add";
-        btn.style.background = "#000";
-        btn.disabled = false;
+        fetch("/?sections=cart-drawer,cart-icon-bubble")
+          .then(function(r) { return r.json(); })
+          .then(function(sections) {
+            var cartDrawer = document.querySelector("cart-drawer");
+            if (cartDrawer && typeof cartDrawer.renderContents === "function") {
+              cartDrawer.classList.remove("is-empty");
+              cartDrawer.renderContents({ sections: sections });
+            }
+            setTimeout(injectIntoDrawer, 100);
+          });
+      }, 800);
+      setTimeout(function() {
+        if (btn) { btn.textContent = "+ Add"; btn.style.background = "#000"; btn.disabled = false; }
       }, 2000);
     })
     .catch(function() {
-      btn.textContent = "Error";
-      btn.disabled = false;
+      if (btn) { btn.textContent = "Error"; btn.disabled = false; }
     });
   };
 
-  // Inject into cart drawer when it opens
+  // Watch cart drawer open
   var cartDrawer = document.querySelector("cart-drawer");
   if (cartDrawer) {
-    var observer = new MutationObserver(function() {
+    new MutationObserver(function() {
       if (cartDrawer.classList.contains("active")) {
-        var existing = cartDrawer.querySelector("#bb-cart-upsell");
-        if (!existing) {
-          var footer = cartDrawer.querySelector(".drawer__footer");
-          if (footer) {
-            var upsellWidget = document.getElementById("bb-cart-upsell");
-            if (upsellWidget) footer.insertBefore(upsellWidget, footer.firstChild);
-          }
-          injectUpsell();
+        injectIntoDrawer();
+        if (!document.getElementById("bb-upsell-track").children.length) {
+          loadUpsellProducts();
         }
       }
-    });
-    observer.observe(cartDrawer, { attributes: true, attributeFilter: ["class"] });
+    }).observe(cartDrawer, { attributes: true, attributeFilter: ["class"] });
   }
 
-  // Also load on page init if drawer is already open
-  injectUpsell();
+  loadUpsellProducts();
 })();
 </script>
 
 {% schema %}
 {
   "name": "Cart Upsell",
-  "target": "section",
+  "target": "body",
   "settings": []
 }
 {% endschema %}
