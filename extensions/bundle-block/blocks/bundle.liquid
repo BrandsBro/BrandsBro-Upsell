@@ -69,57 +69,50 @@
           discountValue: bundle.discountValue,
         }]);
 
-        // Add items WITH sections - response contains updated cart HTML
+        // Step 1: Add items
         fetch("/cart/add.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            items: items,
-            sections: "cart-drawer,cart-icon-bubble",
-            sections_url: window.location.pathname
-          })
+          body: JSON.stringify({ items: items })
         })
         .then(function(r) { return r.json(); })
-        .then(function(response) {
-          // Set bundle data for discount function
-          fetch("/cart/update.js", {
+        .then(function() {
+          // Step 2: Set bundle_data attribute
+          return fetch("/cart/update.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ attributes: { bundle_data: bundleData } })
           });
-
+        })
+        .then(function() {
+          // Step 3: NOW fetch sections with discount already applied
+          return fetch("/?sections=cart-drawer,cart-icon-bubble");
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(sections) {
           btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
 
-          // Use sections from response to update cart drawer
-          if (response.sections) {
-            var cartDrawer = document.querySelector("cart-drawer");
-            if (cartDrawer && typeof cartDrawer.renderContents === "function") {
-              // Dawn theme - use renderContents directly
-              cartDrawer.renderContents(response);
-            } else {
-              // Other themes - manually update sections and open
-              var parser = new DOMParser();
-              if (response.sections["cart-drawer"]) {
-                var doc = parser.parseFromString(response.sections["cart-drawer"], "text/html");
-                var newDrawer = doc.querySelector("#CartDrawer, cart-drawer, .cart-drawer");
-                var oldDrawer = document.querySelector("#CartDrawer, cart-drawer, .cart-drawer");
-                if (oldDrawer && newDrawer) {
-                  oldDrawer.innerHTML = newDrawer.innerHTML;
-                }
-              }
-              if (response.sections["cart-icon-bubble"]) {
-                var doc2 = parser.parseFromString(response.sections["cart-icon-bubble"], "text/html");
-                var newBubble = doc2.querySelector(".cart-count-bubble");
-                var oldBubble = document.querySelector(".cart-count-bubble");
-                if (oldBubble && newBubble) oldBubble.outerHTML = newBubble.outerHTML;
-              }
-              // Open drawer
-              var drawer = document.querySelector("cart-drawer");
-              if (drawer && typeof drawer.open === "function") drawer.open();
-            }
+          var cartDrawer = document.querySelector("cart-drawer");
+          if (cartDrawer && typeof cartDrawer.renderContents === "function") {
+            // Dawn theme
+            cartDrawer.renderContents({ sections: sections });
           } else {
-            window.location.href = "/cart";
+            // Other themes fallback
+            var parser = new DOMParser();
+            if (sections["cart-drawer"]) {
+              var doc = parser.parseFromString(sections["cart-drawer"], "text/html");
+              var newDrawer = doc.querySelector("#CartDrawer");
+              var oldDrawer = document.querySelector("#CartDrawer");
+              if (oldDrawer && newDrawer) oldDrawer.innerHTML = newDrawer.innerHTML;
+            }
+            if (sections["cart-icon-bubble"]) {
+              var doc2 = parser.parseFromString(sections["cart-icon-bubble"], "text/html");
+              var newBubble = doc2.querySelector(".cart-count-bubble");
+              var oldBubble = document.querySelector(".cart-count-bubble");
+              if (oldBubble && newBubble) oldBubble.outerHTML = newBubble.outerHTML;
+            }
+            if (cartDrawer && typeof cartDrawer.open === "function") cartDrawer.open();
           }
 
           setTimeout(function() {
