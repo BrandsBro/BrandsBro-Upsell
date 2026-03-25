@@ -65,7 +65,7 @@ export const action = async ({ request }) => {
 
     if (active) {
       // Create ScriptTag to inject cart upsell on all pages
-      const scriptUrl = "https://brandsbro-upsell.onrender.com/cart-upsell.js";
+      const scriptUrl = "https://brandsbro-upsell.onrender.com/cart-upsell-script";
       const result = await admin.graphql(`
         mutation {
           scriptTagCreate(input: {
