@@ -93,7 +93,10 @@ export const loader = () => {
   };
 
   function init() {
+    console.log("BB Upsell: init called");
+    console.log("BB Upsell: cart drawer found:", !!document.querySelector("cart-drawer"));
     loadUpsellProducts(function(products) {
+      console.log("BB Upsell: products loaded:", products.length);
       if (!products.length) return;
       patchRenderContents();
       var cartDrawer = document.querySelector("cart-drawer");
