@@ -69,53 +69,57 @@
           discountValue: bundle.discountValue,
         }]);
 
-        // Step 1: Set bundle_data first so discount applies
+        function openCartDrawer(sections) {
+          var cartDrawer = document.querySelector("cart-drawer");
+          if (cartDrawer && typeof cartDrawer.renderContents === "function") {
+            cartDrawer.renderContents({ sections: sections });
+          } else {
+            var parser = new DOMParser();
+            if (sections["cart-drawer"]) {
+              var doc = parser.parseFromString(sections["cart-drawer"], "text/html");
+              var newDrawer = doc.querySelector("#CartDrawer");
+              var oldDrawer = document.querySelector("#CartDrawer");
+              if (oldDrawer && newDrawer) oldDrawer.innerHTML = newDrawer.innerHTML;
+            }
+            if (sections["cart-icon-bubble"]) {
+              var doc2 = parser.parseFromString(sections["cart-icon-bubble"], "text/html");
+              var newBubble = doc2.querySelector(".cart-count-bubble");
+              var oldBubble = document.querySelector(".cart-count-bubble");
+              if (oldBubble && newBubble) oldBubble.outerHTML = newBubble.outerHTML;
+            }
+            if (cartDrawer && typeof cartDrawer.open === "function") cartDrawer.open();
+          }
+        }
+
+        // Step 1: Set bundle_data first
         fetch("/cart/update.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ attributes: { bundle_data: bundleData } })
         })
         .then(function() {
-          // Step 2: Add items WITH sections - response has updated cart HTML
+          // Step 2: Add all items
           return fetch("/cart/add.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              items: items,
-              sections: "cart-drawer,cart-icon-bubble",
-              sections_url: window.location.pathname
-            })
+            body: JSON.stringify({ items: items })
           });
         })
-        .then(function(r) { return r.json(); })
-        .then(function(response) {
+        .then(function() {
           btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
 
-          // Use sections directly from cart/add.js response
-          if (response.sections) {
-            var cartDrawer = document.querySelector("cart-drawer");
-            if (cartDrawer && typeof cartDrawer.renderContents === "function") {
-              cartDrawer.renderContents(response);
-            } else {
-              var parser = new DOMParser();
-              if (response.sections["cart-drawer"]) {
-                var doc = parser.parseFromString(response.sections["cart-drawer"], "text/html");
-                var newDrawer = doc.querySelector("#CartDrawer");
-                var oldDrawer = document.querySelector("#CartDrawer");
-                if (oldDrawer && newDrawer) oldDrawer.innerHTML = newDrawer.innerHTML;
-              }
-              if (response.sections["cart-icon-bubble"]) {
-                var doc2 = parser.parseFromString(response.sections["cart-icon-bubble"], "text/html");
-                var newBubble = doc2.querySelector(".cart-count-bubble");
-                var oldBubble = document.querySelector(".cart-count-bubble");
-                if (oldBubble && newBubble) oldBubble.outerHTML = newBubble.outerHTML;
-              }
-              if (cartDrawer && typeof cartDrawer.open === "function") cartDrawer.open();
-            }
-          } else {
-            window.location.href = "/cart";
-          }
+          // Step 3: Wait 800ms for discount function to apply, then fetch fresh sections
+          setTimeout(function() {
+            fetch("/?sections=cart-drawer,cart-icon-bubble")
+              .then(function(r) { return r.json(); })
+              .then(function(sections) {
+                openCartDrawer(sections);
+              })
+              .catch(function() {
+                window.location.href = "/cart";
+              });
+          }, 800);
 
           setTimeout(function() {
             btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
