@@ -74,39 +74,61 @@
           return { id: p.variantId.split("/").pop(), quantity: 1 };
         });
 
-        // Add bundle items + set bundle_data for discount function
         var bundleData = JSON.stringify([{
           productIds: products.map(function(p) { return p.id; }),
           discountType: bundle.discountType,
           discountValue: bundle.discountValue,
         }]);
 
+        // Add items with sections to get updated cart HTML back
         fetch("/cart/add.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: items, sections: "cart-drawer,cart-icon-bubble", sections_url: window.location.pathname })
+          body: JSON.stringify({
+            items: items,
+            sections: "cart-drawer,cart-icon-bubble",
+            sections_url: window.location.pathname
+          })
         })
         .then(function(r) { return r.json(); })
-        .then(function() {
-          // Set bundle data for discount function
-          return fetch("/cart/update.js", {
+        .then(function(response) {
+          // Update cart attributes for discount function
+          fetch("/cart/update.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ attributes: { bundle_data: bundleData } })
           });
-        })
-        .then(function() {
+
           btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
 
-          // Use Shopify sections API - theme handles drawer opening automatically
-          // Theme JS opens drawer automatically via sections
-          // var cartIcon = document.querySelector(
-            "a[href='/cart'], button[aria-label*='cart' i], .cart-icon, #cart-icon-bubble, " +
-            ".header__cart, [data-cart-toggle], .cart-toggle, .js-cart-toggle, " +
-            ".header__icon--cart, [href*='/cart']"
-          );
-          if (cartIcon) cartIcon.click();
+          // Update sections in DOM if returned
+          if (response.sections) {
+            var parser = new DOMParser();
+            Object.keys(response.sections).forEach(function(key) {
+              var doc = parser.parseFromString(response.sections[key], "text/html");
+              if (key === "cart-icon-bubble") {
+                var newEl = doc.querySelector(".cart-count-bubble, #cart-count");
+                var oldEl = document.querySelector(".cart-count-bubble, #cart-count");
+                if (newEl && oldEl) oldEl.outerHTML = newEl.outerHTML;
+              }
+              if (key === "cart-drawer") {
+                var newDrawer = doc.querySelector("cart-drawer, #CartDrawer, .cart-drawer");
+                var oldDrawer = document.querySelector("cart-drawer, #CartDrawer, .cart-drawer");
+                if (newDrawer && oldDrawer) {
+                  oldDrawer.innerHTML = newDrawer.innerHTML;
+                  // Open the drawer
+                  oldDrawer.removeAttribute("inert");
+                  oldDrawer.removeAttribute("hidden");
+                  if (typeof oldDrawer.open === "function") oldDrawer.open();
+                  else {
+                    oldDrawer.classList.add("is-open", "active", "open");
+                    oldDrawer.setAttribute("open", "");
+                  }
+                }
+              }
+            });
+          }
 
           setTimeout(function() {
             btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
