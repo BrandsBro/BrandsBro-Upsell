@@ -5,21 +5,24 @@ export const loader = () => {
   var shopDomain = window.Shopify && window.Shopify.shop;
   if (!shopDomain) return;
 
+  var upsellProducts = [];
+
   function loadUpsellProducts(callback) {
     fetch(appUrl + "/api/cart-upsell?shop=" + shopDomain)
       .then(function(r) { return r.json(); })
-      .then(function(data) { callback(data.products || []); })
+      .then(function(data) {
+        upsellProducts = data.products || [];
+        callback(upsellProducts);
+      })
       .catch(function() { callback([]); });
   }
 
   function buildWidget(products) {
-    var existing = document.getElementById("bb-cart-upsell-widget");
-    if (existing) existing.remove();
     var widget = document.createElement("div");
     widget.id = "bb-cart-upsell-widget";
     widget.style.cssText = "padding:16px;border-top:1px solid #e5e5e5;";
     widget.innerHTML = '<p style="font-size:13px;font-weight:700;margin:0 0 12px;color:#333;">You might also like</p>' +
-      '<div id="bb-upsell-track" style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;">' +
+      '<div style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;">' +
       products.map(function(p) {
         var vid = p.variantId.split("/").pop();
         return '<div style="flex-shrink:0;width:130px;background:#fff;border:1px solid #e5e5e5;border-radius:8px;overflow:hidden;">' +
@@ -33,13 +36,28 @@ export const loader = () => {
     return widget;
   }
 
-  function injectWidget(widget) {
+  function injectWidget() {
+    if (!upsellProducts.length) return;
+    var existing = document.getElementById("bb-cart-upsell-widget");
+    if (existing) existing.remove();
     var cartDrawer = document.querySelector("cart-drawer");
     if (!cartDrawer) return;
     var footer = cartDrawer.querySelector(".drawer__footer");
-    if (footer && !footer.querySelector("#bb-cart-upsell-widget")) {
-      footer.insertBefore(widget, footer.firstChild);
+    if (footer) {
+      footer.insertBefore(buildWidget(upsellProducts), footer.firstChild);
     }
+  }
+
+  // Patch renderContents to re-inject after it runs
+  function patchRenderContents() {
+    var cartDrawer = document.querySelector("cart-drawer");
+    if (!cartDrawer || cartDrawer.__bbPatched) return;
+    cartDrawer.__bbPatched = true;
+    var orig = cartDrawer.renderContents.bind(cartDrawer);
+    cartDrawer.renderContents = function(state) {
+      orig(state);
+      setTimeout(injectWidget, 50);
+    };
   }
 
   window.bbUpsellAdd = function(variantId) {
@@ -66,11 +84,6 @@ export const loader = () => {
             var newBubble = doc.querySelector(".cart-count-bubble");
             var oldBubble = document.querySelector(".cart-count-bubble");
             if (oldBubble && newBubble) oldBubble.outerHTML = newBubble.outerHTML;
-            setTimeout(function() {
-              loadUpsellProducts(function(products) {
-                if (products.length) injectWidget(buildWidget(products));
-              });
-            }, 100);
           });
       }, 800);
       setTimeout(function() {
@@ -79,26 +92,34 @@ export const loader = () => {
     });
   };
 
-  loadUpsellProducts(function(products) {
-    if (!products.length) return;
-    var widget = buildWidget(products);
-    document.body.appendChild(widget);
-    var cartDrawer = document.querySelector("cart-drawer");
-    if (cartDrawer) {
-      new MutationObserver(function() {
-        if (cartDrawer.classList.contains("active")) {
-          injectWidget(widget);
-        }
-      }).observe(cartDrawer, { attributes: true, attributeFilter: ["class"] });
-    }
-  });
+  function init() {
+    loadUpsellProducts(function(products) {
+      if (!products.length) return;
+      patchRenderContents();
+      var cartDrawer = document.querySelector("cart-drawer");
+      if (cartDrawer) {
+        new MutationObserver(function() {
+          if (cartDrawer.classList.contains("active")) {
+            patchRenderContents();
+            injectWidget();
+          }
+        }).observe(cartDrawer, { attributes: true, attributeFilter: ["class"] });
+      }
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();
 `;
 
   return new Response(js, {
     headers: {
       "Content-Type": "application/javascript",
-      "Cache-Control": "public, max-age=3600",
+      "Cache-Control": "public, max-age=300",
       "Access-Control-Allow-Origin": "*",
     },
   });
