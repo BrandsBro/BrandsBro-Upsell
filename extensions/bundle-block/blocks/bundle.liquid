@@ -1,5 +1,6 @@
 {% assign app_url = "https://brandsbro-upsell.onrender.com" %}
 
+<!-- Bundle Widget -->
 <div id="bundle-widget-{{ block.id }}" style="display:none; border:2px solid #000; border-radius:12px; padding:20px; margin:20px 0; background:#fafafa;">
   <div style="margin-bottom:16px;">
     <span style="background:#000; color:#fff; font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:0.08em;">Bundle Deal</span>
@@ -8,8 +9,6 @@
   </div>
   <div style="position:relative; margin-bottom:16px;">
     <div id="bundle-products-{{ block.id }}" style="display:flex; gap:12px; overflow-x:auto; scroll-behavior:smooth; scrollbar-width:none; padding-bottom:4px;"></div>
-    <button id="bundle-prev-{{ block.id }}" style="display:none; position:absolute; left:-12px; top:50%; transform:translateY(-50%); background:#fff; border:1px solid #e5e5e5; border-radius:50%; width:28px; height:28px; cursor:pointer; font-size:16px;">‹</button>
-    <button id="bundle-next-{{ block.id }}" style="display:none; position:absolute; right:-12px; top:50%; transform:translateY(-50%); background:#fff; border:1px solid #e5e5e5; border-radius:50%; width:28px; height:28px; cursor:pointer; font-size:16px;">›</button>
   </div>
   <div style="display:flex; align-items:center; gap:16px;">
     <div id="bundle-savings-{{ block.id }}" style="font-size:15px; font-weight:600; color:#008060; white-space:nowrap;"></div>
@@ -17,6 +16,26 @@
       style="flex:1; background:#000; color:#fff; border:none; border-radius:8px; padding:14px 20px; font-size:15px; font-weight:600; cursor:pointer;">
       {{ block.settings.button_text | default: 'Add Bundle to Cart' }}
     </button>
+  </div>
+</div>
+
+<!-- Our Own Cart Drawer -->
+<div id="bb-cart-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99998;" onclick="document.getElementById('bb-cart-overlay').style.display='none'; document.getElementById('bb-cart-drawer').style.transform='translateX(100%)';">
+</div>
+
+<div id="bb-cart-drawer" style="position:fixed; top:0; right:0; width:380px; max-width:100vw; height:100%; background:#fff; z-index:99999; transform:translateX(100%); transition:transform 0.3s ease; display:flex; flex-direction:column; box-shadow:-4px 0 20px rgba(0,0,0,0.15);">
+  <div style="padding:20px; border-bottom:1px solid #e5e5e5; display:flex; justify-content:space-between; align-items:center;">
+    <h2 style="margin:0; font-size:18px; font-weight:700;">Your Cart</h2>
+    <button onclick="document.getElementById('bb-cart-overlay').style.display='none'; document.getElementById('bb-cart-drawer').style.transform='translateX(100%)';" style="background:none; border:none; cursor:pointer; font-size:24px; line-height:1;">×</button>
+  </div>
+  <div id="bb-cart-items" style="flex:1; overflow-y:auto; padding:20px;"></div>
+  <div style="padding:20px; border-top:1px solid #e5e5e5;">
+    <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+      <span style="font-size:16px; font-weight:600;">Subtotal</span>
+      <span id="bb-cart-subtotal" style="font-size:16px; font-weight:700;"></span>
+    </div>
+    <a href="/checkout" style="display:block; background:#000; color:#fff; text-align:center; padding:16px; border-radius:8px; font-size:16px; font-weight:600; text-decoration:none; margin-bottom:10px;">Checkout</a>
+    <a href="/cart" style="display:block; background:#fff; color:#000; text-align:center; padding:14px; border-radius:8px; font-size:15px; font-weight:500; text-decoration:none; border:1px solid #000;">View Cart</a>
   </div>
 </div>
 
@@ -31,6 +50,43 @@
   var productId = "{{ product.id }}";
   var appUrl = "{{ app_url }}";
 
+  function openBBCart() {
+    fetch("/cart.js")
+      .then(function(r) { return r.json(); })
+      .then(function(cart) {
+        var itemsEl = document.getElementById("bb-cart-items");
+        var subtotalEl = document.getElementById("bb-cart-subtotal");
+
+        if (cart.items.length === 0) {
+          itemsEl.innerHTML = '<p style="text-align:center; color:#666; padding:40px 0;">Your cart is empty</p>';
+        } else {
+          itemsEl.innerHTML = cart.items.map(function(item) {
+            var originalPrice = item.original_price / 100;
+            var finalPrice = item.final_price / 100;
+            var hasDiscount = finalPrice < originalPrice;
+            return '<div style="display:flex; gap:12px; margin-bottom:20px; padding-bottom:20px; border-bottom:1px solid #f0f0f0;">' +
+              (item.image ? '<img src="' + item.image + '" style="width:64px; height:64px; object-fit:cover; border-radius:8px; flex-shrink:0;" />' : '') +
+              '<div style="flex:1;">' +
+              '<p style="margin:0 0 4px; font-weight:600; font-size:14px;">' + item.product_title + '</p>' +
+              '<p style="margin:0 0 4px; color:#666; font-size:13px;">' + (item.variant_title !== "Default Title" ? item.variant_title : "") + '</p>' +
+              '<div style="display:flex; align-items:center; gap:8px;">' +
+              (hasDiscount ? '<span style="text-decoration:line-through; color:#999; font-size:13px;">$' + originalPrice.toFixed(2) + '</span>' : '') +
+              '<span style="font-weight:600; font-size:14px; color:' + (hasDiscount ? "#008060" : "#000") + ';">$' + finalPrice.toFixed(2) + '</span>' +
+              (hasDiscount ? '<span style="background:#e3f5ed; color:#008060; font-size:11px; padding:2px 6px; border-radius:4px;">DISCOUNT</span>' : '') +
+              '</div>' +
+              '<p style="margin:4px 0 0; color:#666; font-size:13px;">Qty: ' + item.quantity + '</p>' +
+              '</div></div>';
+          }).join('');
+        }
+
+        var total = cart.total_price / 100;
+        subtotalEl.textContent = "$" + total.toFixed(2) + " " + cart.currency;
+
+        document.getElementById("bb-cart-overlay").style.display = "block";
+        document.getElementById("bb-cart-drawer").style.transform = "translateX(0)";
+      });
+  }
+
   fetch(appUrl + "/api/bundles?shop=" + shopDomain + "&productId=" + productId)
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -40,8 +96,6 @@
       var productsEl = document.getElementById("bundle-products-" + blockId);
       var savingsEl = document.getElementById("bundle-savings-" + blockId);
       var btn = document.getElementById("bundle-btn-" + blockId);
-      var prevBtn = document.getElementById("bundle-prev-" + blockId);
-      var nextBtn = document.getElementById("bundle-next-" + blockId);
       var products = bundle.products || [];
 
       productsEl.innerHTML = products.map(function(p, i) {
@@ -51,13 +105,6 @@
           '<div><p style="font-size:13px;font-weight:600;margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">' + p.title + '</p>' +
           '<p style="font-size:12px;color:#666;margin:0;">$' + p.price + '</p></div></div>';
       }).join('');
-
-      if (products.length > 2) {
-        prevBtn.style.display = "block";
-        nextBtn.style.display = "block";
-        prevBtn.addEventListener("click", function() { productsEl.scrollBy({ left: -200, behavior: "smooth" }); });
-        nextBtn.addEventListener("click", function() { productsEl.scrollBy({ left: 200, behavior: "smooth" }); });
-      }
 
       var total = products.reduce(function(s, p) { return s + parseFloat(p.price || 0); }, 0);
       var disc = bundle.discountValue || 0;
@@ -80,56 +127,23 @@
           discountValue: bundle.discountValue,
         }]);
 
-        // Add items with sections to get updated cart HTML back
         fetch("/cart/add.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            items: items,
-            sections: "cart-drawer,cart-icon-bubble",
-            sections_url: window.location.pathname
-          })
+          body: JSON.stringify({ items: items })
         })
         .then(function(r) { return r.json(); })
-        .then(function(response) {
-          // Update cart attributes for discount function
-          fetch("/cart/update.js", {
+        .then(function() {
+          return fetch("/cart/update.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ attributes: { bundle_data: bundleData } })
           });
-
+        })
+        .then(function() {
           btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
-
-          // Update sections in DOM if returned
-          if (response.sections) {
-            var parser = new DOMParser();
-            Object.keys(response.sections).forEach(function(key) {
-              var doc = parser.parseFromString(response.sections[key], "text/html");
-              if (key === "cart-icon-bubble") {
-                var newEl = doc.querySelector(".cart-count-bubble, #cart-count");
-                var oldEl = document.querySelector(".cart-count-bubble, #cart-count");
-                if (newEl && oldEl) oldEl.outerHTML = newEl.outerHTML;
-              }
-              if (key === "cart-drawer") {
-                var newDrawer = doc.querySelector("cart-drawer, #CartDrawer, .cart-drawer");
-                var oldDrawer = document.querySelector("cart-drawer, #CartDrawer, .cart-drawer");
-                if (newDrawer && oldDrawer) {
-                  oldDrawer.innerHTML = newDrawer.innerHTML;
-                  // Open the drawer
-                  oldDrawer.removeAttribute("inert");
-                  oldDrawer.removeAttribute("hidden");
-                  if (typeof oldDrawer.open === "function") oldDrawer.open();
-                  else {
-                    oldDrawer.classList.add("is-open", "active", "open");
-                    oldDrawer.setAttribute("open", "");
-                  }
-                }
-              }
-            });
-          }
-
+          openBBCart();
           setTimeout(function() {
             btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
             btn.style.background = "#000";
