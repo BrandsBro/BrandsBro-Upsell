@@ -69,7 +69,7 @@
           discountValue: bundle.discountValue,
         }]);
 
-        // Step 1: Add bundle items silently
+        // Step 1: Add all bundle items silently via fetch
         fetch("/cart/add.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -88,20 +88,33 @@
           btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
 
-          // Step 3: Trigger theme's add to cart button to open drawer
-          // But set quantity to 0 so nothing extra gets added
+          // Step 3: Hijack the theme's add to cart form
+          // Replace variant ID with first bundle item (already in cart)
+          // Set quantity to 0 so nothing new gets added
+          // Submit so theme's JS fires naturally and opens drawer
           var form = document.querySelector("form[action='/cart/add']");
           if (form) {
+            var idInput = form.querySelector("[name='id']");
             var qtyInput = form.querySelector("[name='quantity']");
             var submitBtn = form.querySelector("[name='add']");
-            var origQty = qtyInput ? qtyInput.value : "1";
-            // Set quantity to 0 - theme opens drawer but adds nothing
-            if (qtyInput) qtyInput.value = "0";
-            if (submitBtn) submitBtn.click();
-            // Restore quantity after
-            setTimeout(function() {
-              if (qtyInput) qtyInput.value = origQty;
-            }, 500);
+
+            if (idInput && submitBtn) {
+              var origId = idInput.value;
+              var origQty = qtyInput ? qtyInput.value : "1";
+
+              // Set to first bundle variant (already in cart) with qty 0
+              idInput.value = items[0].id;
+              if (qtyInput) qtyInput.value = "0";
+
+              // Click submit — theme JS fires, opens drawer with updated cart
+              submitBtn.click();
+
+              // Restore original values after theme JS reads them
+              setTimeout(function() {
+                idInput.value = origId;
+                if (qtyInput) qtyInput.value = origQty;
+              }, 300);
+            }
           }
 
           setTimeout(function() {
