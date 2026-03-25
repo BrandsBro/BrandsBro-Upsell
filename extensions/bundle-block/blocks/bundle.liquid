@@ -72,8 +72,13 @@
         function openCartDrawer(sections) {
           var cartDrawer = document.querySelector("cart-drawer");
           if (cartDrawer && typeof cartDrawer.renderContents === "function") {
+            // Remove is-empty so drawer shows items
+            cartDrawer.classList.remove("is-empty");
+            var inner = cartDrawer.querySelector(".drawer__inner");
+            if (inner) inner.classList.remove("is-empty");
             cartDrawer.renderContents({ sections: sections });
           } else {
+            // Fallback for non-Dawn themes
             var parser = new DOMParser();
             if (sections["cart-drawer"]) {
               var doc = parser.parseFromString(sections["cart-drawer"], "text/html");
@@ -88,17 +93,18 @@
               if (oldBubble && newBubble) oldBubble.outerHTML = newBubble.outerHTML;
             }
             if (cartDrawer && typeof cartDrawer.open === "function") cartDrawer.open();
+            else window.location.href = "/cart";
           }
         }
 
-        // Step 1: Set bundle_data first
+        // Step 1: Set bundle_data first so discount function knows about bundle
         fetch("/cart/update.js", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ attributes: { bundle_data: bundleData } })
         })
         .then(function() {
-          // Step 2: Add all items
+          // Step 2: Add all bundle items
           return fetch("/cart/add.js", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -109,7 +115,8 @@
           btn.textContent = "✓ Added!";
           btn.style.background = "#008060";
 
-          // Step 3: Wait 800ms for discount function to apply, then fetch fresh sections
+          // Step 3: Wait 1000ms for Shopify discount function to apply
+          // Then fetch fresh sections with discounts already applied
           setTimeout(function() {
             fetch("/?sections=cart-drawer,cart-icon-bubble")
               .then(function(r) { return r.json(); })
@@ -119,13 +126,13 @@
               .catch(function() {
                 window.location.href = "/cart";
               });
-          }, 800);
+          }, 1000);
 
           setTimeout(function() {
             btn.textContent = "{{ block.settings.button_text | default: 'Add Bundle to Cart' }}";
             btn.style.background = "#000";
             btn.disabled = false;
-          }, 3000);
+          }, 4000);
         })
         .catch(function(err) {
           console.error("Cart error:", err);
