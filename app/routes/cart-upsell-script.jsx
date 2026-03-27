@@ -1,17 +1,15 @@
 export const loader = () => {
-  const parts = [
+  const js = [
     "(function() {",
     "var appUrl = 'https://brandsbro-upsell.onrender.com';",
     "var shopDomain = (window.Shopify && window.Shopify.shop) || new URLSearchParams(window.location.search).get('shop');",
-    "console.log('BB Upsell loaded, shop:', shopDomain);",
     "if (!shopDomain) return;",
     "var upsellProducts = [];",
     "function loadUpsellProducts(cb) {",
     "  fetch(appUrl + '/api/cart-upsell?shop=' + shopDomain).then(function(r){return r.json();}).then(function(d){",
     "    upsellProducts = d.products || [];",
-    "    console.log('BB Upsell products:', upsellProducts.length);",
     "    cb(upsellProducts);",
-    "  }).catch(function(e){console.error('BB error',e);cb([]);});",
+    "  }).catch(function(){cb([]);});",
     "}",
     "function buildWidget(products) {",
     "  var w = document.createElement('div');",
@@ -40,7 +38,7 @@ export const loader = () => {
     "  var cd = document.querySelector('cart-drawer');",
     "  if (!cd) return;",
     "  var footer = cd.querySelector('.drawer__footer');",
-    "  if (footer) { footer.insertBefore(buildWidget(upsellProducts), footer.firstChild); console.log('BB widget injected'); }",
+    "  if (footer) footer.insertBefore(buildWidget(upsellProducts), footer.firstChild);",
     "}",
     "function patchRenderContents() {",
     "  var cd = document.querySelector('cart-drawer');",
@@ -48,19 +46,18 @@ export const loader = () => {
     "  cd.__bbPatched = true;",
     "  var orig = cd.renderContents.bind(cd);",
     "  cd.renderContents = function(state) { orig(state); setTimeout(injectWidget, 50); };",
-    "  console.log('BB renderContents patched');",
     "}",
     "window.bbUpsellAdd = function(variantId) {",
     "  var btn = document.getElementById('bb-btn-' + variantId);",
     "  if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }",
-    "  fetch('/cart/add.js', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({items:[{id:parseInt(variantId),quantity:1}]}) })",
+    "  fetch('/cart/add.js', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{id:parseInt(variantId),quantity:1}]})})",
     "  .then(function(r){return r.json();}).then(function(){",
     "    if (btn) { btn.textContent = 'Added!'; btn.style.background = '#008060'; }",
     "    setTimeout(function(){",
-    "      fetch('/?sections=cart-drawer,cart-icon-bubble').then(function(r){return r.json();}).then(function(sections){",
+    "      fetch('/?sections=cart-drawer,cart-icon-bubble').then(function(r){return r.json();}).then(function(s){",
     "        var cd = document.querySelector('cart-drawer');",
-    "        if (cd && typeof cd.renderContents === 'function') { cd.classList.remove('is-empty'); cd.renderContents({sections:sections}); }",
-    "        var doc = new DOMParser().parseFromString(sections['cart-icon-bubble']||'','text/html');",
+    "        if (cd && typeof cd.renderContents === 'function') { cd.classList.remove('is-empty'); cd.renderContents({sections:s}); }",
+    "        var doc = new DOMParser().parseFromString(s['cart-icon-bubble']||'','text/html');",
     "        var nb = doc.querySelector('.cart-count-bubble');",
     "        var ob = document.querySelector('.cart-count-bubble');",
     "        if (ob && nb) ob.outerHTML = nb.outerHTML;",
@@ -70,34 +67,23 @@ export const loader = () => {
     "  });",
     "};",
     "function init() {",
-    "  console.log('BB init, cart-drawer:', !!document.querySelector('cart-drawer'));",
     "  loadUpsellProducts(function(products) {",
     "    if (!products.length) return;",
     "    patchRenderContents();",
     "    var cd = document.querySelector('cart-drawer');",
-    "    if (cd) {
-      // Watch footer for changes (item removal) and re-inject
-      var footerObserver = new MutationObserver(function() {
-        if (!document.getElementById('bb-cart-upsell-widget')) {
-          injectWidget();
-        }
-      });
-      var footer = cd.querySelector('.drawer__footer');
-      if (footer) footerObserver.observe(footer, {childList: true, subtree: true});",
-    "      new MutationObserver(function(){
-        injectWidget();
-      }).observe(cd.querySelector(".drawer__footer") || cd, {childList:true, subtree:false});
-      new MutationObserver(function(){",
+    "    if (cd) {",
+    "      new MutationObserver(function(){",
     "        if (cd.classList.contains('active')) { patchRenderContents(); injectWidget(); }",
-    "      }).observe(cd, {attributes:true, attributeFilter:['class']});",
+    "        if (!document.getElementById('bb-cart-upsell-widget') && cd.classList.contains('active')) { injectWidget(); }",
+    "      }).observe(cd, {attributes:true, subtree:true, childList:true, attributeFilter:['class']});",
     "    }",
     "  });",
     "}",
     "if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); } else { init(); }",
     "})();"
-  ];
+  ].join("\n");
 
-  return new Response(parts.join("\n"), {
+  return new Response(js, {
     headers: {
       "Content-Type": "application/javascript",
       "Cache-Control": "no-cache",
