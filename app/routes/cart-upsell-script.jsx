@@ -2,7 +2,8 @@ export const loader = () => {
   const js = `
 (function() {
   var appUrl = "https://brandsbro-upsell.onrender.com";
-  var shopDomain = window.Shopify && window.Shopify.shop;
+  console.log("BB: script loaded, Shopify:", window.Shopify && window.Shopify.shop);
+  var shopDomain = (window.Shopify && window.Shopify.shop) || new URLSearchParams(window.location.search).get("shop") || document.querySelector("link[rel=canonical]") && new URL(document.querySelector("link[rel=canonical]").href).hostname;
   if (!shopDomain) return;
 
   var upsellProducts = [];
