@@ -68,7 +68,7 @@ export default function BundlesPage() {
                   action={{ content: "Create bundle", onAction: () => navigate("/app/bundles/new") }}
                   image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                 >
-                  <p>Bundles combine multiple products at a discount and show on product and carte pages.</p>
+                  <p>Bundles combine multiple products at a discount and show on product and cart pages.</p>
                 </EmptyState>
               ) : (
                 <IndexTable
