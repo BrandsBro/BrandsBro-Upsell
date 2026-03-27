@@ -75,7 +75,7 @@ export const loader = () => {
     "      new MutationObserver(function(){",
     "        if (cd.classList.contains('active')) { patchRenderContents(); injectWidget(); }",
     "        if (!document.getElementById('bb-cart-upsell-widget') && cd.classList.contains('active')) { injectWidget(); }",
-    "      }).observe(cd, {attributes:true, subtree:true, childList:true, attributeFilter:['class']});",
+    "      }).observe(cd, {attributes:true, attributeFilter:['class']});",
     "    }",
     "  });",
     "}",
