@@ -75,8 +75,19 @@ export const loader = () => {
     "    if (!products.length) return;",
     "    patchRenderContents();",
     "    var cd = document.querySelector('cart-drawer');",
-    "    if (cd) {",
-    "      new MutationObserver(function(){",
+    "    if (cd) {
+      // Watch footer for changes (item removal) and re-inject
+      var footerObserver = new MutationObserver(function() {
+        if (!document.getElementById('bb-cart-upsell-widget')) {
+          injectWidget();
+        }
+      });
+      var footer = cd.querySelector('.drawer__footer');
+      if (footer) footerObserver.observe(footer, {childList: true, subtree: true});",
+    "      new MutationObserver(function(){
+        injectWidget();
+      }).observe(cd.querySelector(".drawer__footer") || cd, {childList:true, subtree:false});
+      new MutationObserver(function(){",
     "        if (cd.classList.contains('active')) { patchRenderContents(); injectWidget(); }",
     "      }).observe(cd, {attributes:true, attributeFilter:['class']});",
     "    }",
